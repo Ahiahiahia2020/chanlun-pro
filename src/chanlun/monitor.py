@@ -17,7 +17,7 @@ from chanlun import kcharts
 from chanlun.cl_interface import ICL
 from chanlun.cl_utils import web_batch_get_cl_datas, bi_td
 from chanlun.exchange import get_exchange, Market
-from chanlun.utils import send_fs_msg
+from chanlun.utils import send_fs_msg, send_fs_msg_mine
 from chanlun import config
 from chanlun.db import db
 import traceback
@@ -189,12 +189,15 @@ def monitoring_code(
     if len(send_msgs) > 0:
         for cd in cl_datas:
             title = f"{name} - {cd.get_frequency()}"
-            image_key = kchart_to_png(market, title, cd, cl_config)
+            # image_key = kchart_to_png(market, title, cd, cl_config)
+            image_key = kchart_to_png_mine(task_name, title, cd, cl_config)
             if image_key != "":
                 send_msgs.append(image_key)
     # 发送消息
     if len(send_msgs) > 0:
-        send_fs_msg(market, f"{task_name} 监控提醒", send_msgs)
+        # send_fs_msg(market, f"{task_name} 监控提醒", send_msgs)
+        send_fs_msg_mine(task_name, f"{task_name} 监控提醒", send_msgs)
+
 
     return jh_msgs
 
@@ -265,6 +268,72 @@ def kchart_to_png(market: str, title: str, cd: ICL, cl_config: dict) -> str:
         if pathlib.Path(png_file).is_file():
             os.remove(png_file)
 
+def kchart_to_png_mine(robot: str, title: str, cd: ICL, cl_config: dict) -> str:
+    """
+    缠论数据保存图表并上传网络，返回访问地址
+    """
+    # 没有启用图片则不生产图片
+    if config.FEISHU_KEYS["enable_img"] == False:
+        return ""
+
+    robot_name = robot.split('-')[0] 
+    fs_keys = (
+        config.FEISHU_KEYS[robot_name]
+        if robot in config.FEISHU_KEYS.keys()
+        else config.FEISHU_KEYS["default"]
+    )
+
+    png_path = config.get_data_path() / "png"
+    if png_path.is_dir() is False:
+        png_path.mkdir(parents=True)
+    cl_config["chart_width"] = "1000px"
+    cl_config["chart_heigh"] = "800px"
+    cl_config["chart_kline_nums"] = 600
+    file_name = (
+        cd.get_code().replace(".", "_").replace("/", "_").replace("@", "_")
+        + "_"
+        + cd.get_frequency()
+    )
+    cl_config["to_file"] = f"{file_name}_{int(time.time())}.html"
+    png_file = f"{str(png_path)}/{file_name}_{int(time.time())}.png"
+
+    try:
+        # 渲染并保存图片
+        render_file = kcharts.render_charts(title, cd, config=cl_config)
+        make_snapshot(snapshot, render_file, png_file, is_remove_html=True, delay=4)
+
+        # 上传图片
+        # 创建client
+        client = (
+            lark.Client.builder()
+            .app_id(fs_keys["app_id"])
+            .app_secret(fs_keys["app_secret"])
+            .log_level(lark.LogLevel.INFO)
+            .build()
+        )
+        # 构造请求对象
+        with open(png_file, "rb") as img_fp:
+            request: CreateImageRequest = (
+                CreateImageRequest.builder()
+                .request_body(
+                    CreateImageRequestBody.builder()
+                    .image_type("message")
+                    .image(img_fp)
+                    .build()
+                )
+                .build()
+            )
+            # 发起请求
+            response: CreateImageResponse = client.im.v1.image.create(request)
+        return response.data.image_key
+    except Exception as e:
+        print(f"{title} 生成并上传图片异常：{e}")
+        traceback.print_exc()
+        return ""
+    finally:
+        # 删除本地图片
+        if pathlib.Path(png_file).is_file():
+            os.remove(png_file)
 
 if __name__ == "__main__":
     from chanlun.exchange.exchange_tdx import ExchangeTDX
@@ -273,8 +342,13 @@ if __name__ == "__main__":
 
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config("a", "SH.000001")
-    klines = ex.klines("SH.600519", "d")
-    cd = cl.CL("SH.600519", "d", cl_config).process_klines(klines)
+    klines = ex.klines("SH.000016", "d")
+    cd = cl.CL("SH.000016", "d", cl_config).process_klines(klines)
 
-    image_key = kchart_to_png("a", "缠论数据", cd, cl_config)
+    # image_key = kchart_to_png("a", "缠论数据", cd, cl_config)
+    # image_key = kchart_to_png_mine("kechuang-30f", "缠论数据", cd, cl_config)
+    image_key = kchart_to_png_mine("gold", "缠论数据", cd, cl_config)
+    # image_key = kchart_to_png_mine("a-30f", "缠论数据", cd, cl_config)
+    # image_key = kchart_to_png_mine("1f3m", "缠论数据", cd, cl_config)
+    # image_key = kchart_to_png_mine("default", "缠论数据", cd, cl_config)
     print(image_key)

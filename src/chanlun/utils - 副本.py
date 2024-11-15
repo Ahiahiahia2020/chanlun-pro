@@ -62,21 +62,6 @@ def config_get_feishu_keys(market):
     keys["user_id"] = config.FEISHU_KEYS["user_id"]
     return keys
 
-def config_get_feishu_robot(robot):
-    db_fs_key = db.cache_get("fs_keys")
-    if (
-        db_fs_key is not None
-        and db_fs_key["app_id"] != ""
-        and db_fs_key["app_secret"] != ""
-        and db_fs_key["user_id"] != ""
-    ):
-        return db_fs_key
-    keys = config.FEISHU_KEYS["default"]
-    if robot in config.FEISHU_KEYS.keys():
-        keys = config.FEISHU_KEYS[robot]
-    keys["user_id"] = config.FEISHU_KEYS["user_id"]
-    return keys
-
 
 # 旧版的API接口已经下架，不能新增了，后续使用 飞书的 消息接口
 def send_dd_msg(market: str, msg: Union[str, dict]):
@@ -192,112 +177,8 @@ def send_fs_msg(market, title, contents: Union[str, list]):
         )
     return True
 
-def send_fs_msg_mine(robot, title, contents: Union[str, list]):
-    """
-    发送飞书消息
-    """
-    robot_name = robot.split('-')[0] 
-    fs_key = config_get_feishu_robot(robot_name)
-    if (
-        fs_key is None
-        or fs_key["app_id"] == ""
-        or fs_key["app_secret"] == ""
-        or fs_key["user_id"] == ""
-    ):
-        return True
-    # 创建client
-    client = (
-        lark.Client.builder()
-        .app_id(fs_key["app_id"])
-        .app_secret(fs_key["app_secret"])
-        .log_level(lark.LogLevel.WARNING)
-        .build()
-    )
-    # https://open.feishu.cn/document/server-docs/im-v1/message-content-description/create_json
-    if isinstance(contents, str):
-        msg_content = {
-            "zh_cn": {
-                "title": title,
-                "content": [[{"tag": "text", "text": f"{contents} \n"}]],
-            }
-        }
-    else:
-        msg_content = {
-            "zh_cn": {
-                "title": title,
-                "content": [[]],
-            }
-        }
-        for _c in contents:
-            if _c.startswith("img_"):  # 支持图片消息
-                msg_content["zh_cn"]["content"][0].append(
-                    {"tag": "img", "image_key": f"{_c}"}
-                )
-            else:
-                msg_content["zh_cn"]["content"][0].append(
-                    {"tag": "text", "text": f"{_c} \n"}
-                )
-
-    msg_content = json.dumps(msg_content, ensure_ascii=False)
-
-    if robot_name == "gold":
-        # 构造群消息请求对象
-        request: CreateMessageRequest = (
-        CreateMessageRequest.builder()
-        .receive_id_type("chat_id")
-        .request_body(
-            CreateMessageRequestBody.builder()
-            .receive_id("oc_a542069624247330438a3b9fdcf00e14")
-            .msg_type("post")
-            .content(msg_content)
-            .build()
-        )
-        .build()
-        )
-    elif robot_name == "hs300":
-        # 构造群消息请求对象
-        request: CreateMessageRequest = (
-        CreateMessageRequest.builder()
-        .receive_id_type("chat_id")
-        .request_body(
-            CreateMessageRequestBody.builder()
-            .receive_id("oc_56db4e3ee89ca67611f4fc14f355d51c")
-            .msg_type("post")
-            .content(msg_content)
-            .build()
-        )
-        .build()
-        )
-    else:
-        # 构造请求对象
-        request: CreateMessageRequest = (
-            CreateMessageRequest.builder()
-            .receive_id_type("user_id")
-            .request_body(
-                CreateMessageRequestBody.builder()
-                .receive_id(fs_key["user_id"])
-                .msg_type("post")
-                .content(msg_content)
-                .build()
-            )
-            .build()
-        )
-
-
-    # 发起请求
-    response: CreateMessageResponse = client.im.v1.message.create(request)
-    # 处理失败返回
-    if not response.success():
-        lark.logger.error(
-            f"client.im.v1.message.create failed, code: {response.code}, msg: {response.msg}, log_id: {response.get_log_id()}"
-        )
-    return True
-
 
 if __name__ == "__main__":
-    # send_fs_msg("us", "这里是选股的测试消息", ["运行完成", "选出300只股票", "用时1000小时"])
-    # send_fs_msg("5f3m", "这里是选股的测试消息", ["运行完成", "选出300只股票", "用时1000小时"])
-    # send_fs_msg_mine("gold-15min", "这里是沪金15min的测试消息", ["测试完成"])
-    # send_fs_msg("30f3mceshi", "这里是选股的测试消息", ["运行完成", "选出300只股票", "用时1000小时"])
-    # send_fs_msg_mine("gold", "这里是沪金的测试消息", ["测试完成"])
-    send_fs_msg_mine("hs300", "这里是hs300的测试消息", ["测试完成"])
+    send_fs_msg(
+        "us", "这里是选股的测试消息", ["运行完成", "选出300只股票", "用时1000小时"]
+    )
