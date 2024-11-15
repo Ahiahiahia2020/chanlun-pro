@@ -103,7 +103,8 @@ class ExchangeTDX(Exchange):
                         name = _d[1]["name"]
                         sse = "SZ" if market == 0 else "SH"
                         _type = self.for_sz(code) if market == 0 else self.for_sh(code)
-                        if _type in ["bond_cn", "undefined", "stockB_cn"]:
+                        # if _type in ["bond_cn", "undefined", "stockB_cn"]:
+                        if _type in ["undefined", "stockB_cn"]:
                             continue
                         code = f"{sse}.{str(code)}"
                         if code in __codes:
