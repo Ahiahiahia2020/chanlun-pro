@@ -300,4 +300,4 @@ if __name__ == "__main__":
     # send_fs_msg_mine("gold-15min", "这里是沪金15min的测试消息", ["测试完成"])
     # send_fs_msg("30f3mceshi", "这里是选股的测试消息", ["运行完成", "选出300只股票", "用时1000小时"])
     # send_fs_msg_mine("gold", "这里是沪金的测试消息", ["测试完成"])
-    send_fs_msg_mine("hs300", "这里是hs300的测试消息", ["测试完成"])
+    send_fs_msg_mine("hs300-5min", "这里是hs300的测试消息", ["测试完成"])
