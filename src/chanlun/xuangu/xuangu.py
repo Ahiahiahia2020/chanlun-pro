@@ -623,6 +623,10 @@ def compare_xingcheng_ld(one_line: LINE, two_line: LINE):
         return False
 
 def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
+    import logging
+    from typing import List
+    logging.basicConfig(filename='xg_single_xingcheng.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
     """
     找行程力度背驰的股票
     逻辑:1、找股票已经存在的最后2个线段,(确保一上一下)
@@ -637,7 +641,8 @@ def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
     xds = cd.get_xds()[-2:]
     for xd in xds:
         if "down" == xd.type and compare_xingcheng_ld(xd.start_line, xd.end_line):
-            msg="段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
+            msg="{}段内笔行程背驰,线段结束时间：{}".format(cd.get_code(),xd.end.k.date)
+            logging.info(msg)
             return {"code": cd.get_code(), "msg": msg, }
     return None
 
@@ -652,9 +657,10 @@ if __name__ == "__main__":
     from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
 
     market = "a"
-    code = "SH.601991"
+    # code = "SH.601991"
+    code = "SH.600276"
     # code = "SH.600038"
-    freq = "d"
+    freq = "w"
 
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config(market, code)
