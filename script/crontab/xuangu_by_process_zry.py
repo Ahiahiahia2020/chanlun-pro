@@ -38,7 +38,7 @@ cl_config = query_cl_chart_config("a", "SH.000001")
 这个需要确保在 config.py 中有进行配置
 """
 zx = zixuan.ZiXuan("a")
-zx_group = "测试选股"
+zx_group = "段内笔行程背驰"
 
 
 def xuangu_by_code(code: str):
@@ -51,7 +51,7 @@ def xuangu_by_code(code: str):
         """
         这里使用自己需要的选股条件方法进行判断 ***
         """
-        xg_res = xuangu.xg_single_find_3buy_by_zhuanzhe(cds)
+        xg_res = xuangu.xg_single_xingcheng(cds)
         if xg_res is not None:
             stocks = ex.stock_info(code)
             tqdm.write(

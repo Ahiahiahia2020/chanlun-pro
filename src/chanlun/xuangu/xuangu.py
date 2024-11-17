@@ -608,25 +608,39 @@ def xingchenglidu(line: LINE) -> list:
     dx = line.end.k.k_index - line.start.k.k_index
     return [dy, dx, dy/dx]
 
-def compare_xingcheng_ld(one_line: dict, two_line: dict, line_direction: str):
+def compare_xingcheng_ld(one_line: LINE, two_line: LINE):
     """
-    比较两个力度，后者小于前者，返回 True
-    :param one_ld:
-    :param two_ld:
-    :param line_direction: [up down] 比较线的方向，向上看macd红柱子之和，向下看macd绿柱子之和
+    比较两个线的力度，后者小于前者，返回 True
+    :param one_line:
+    :param two_line:
     :return:
     """
-    hist_key = "sum"
-    if line_direction == "up":
-        hist_key = "up_sum"
-    elif line_direction == "down":
-        hist_key = "down_sum"
-    if "macd" not in two_ld.keys() or "macd" not in one_ld.keys():
-        return False
-    if two_ld["macd"]["hist"][hist_key] < one_ld["macd"]["hist"][hist_key]:
+    dy1, dx1, ld1 = xingchenglidu(one_line)
+    dy2, dx2, ld2 = xingchenglidu(two_line)
+    if ( (dy2 > dy1) and  (ld2 < ld1)):
         return True
     else:
         return False
+
+def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
+    """
+    找行程力度背驰的股票
+    逻辑:1、找股票已经存在的最后2个线段,(确保一上一下)
+         2、获取向下线段
+         3、判断线段内第一笔和最后一笔行程是否背驰
+         4、如果段内笔行程背驰,则选出该股票加入自选
+    周期：单周期
+    使用市场:沪深A股
+    作者:ZRY
+    """
+    cd = cl_datas[0]
+    xds = cd.get_xds()[-2:]
+    for xd in xds:
+        if "down" == xd.type and compare_xingcheng_ld(xd.start_line, xd.end_line):
+            msg="段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
+            return {"code": cd.get_code(), "msg": msg, }
+    return None
+
 
 def interact():
     """执行后进入repl模式"""
@@ -638,7 +652,8 @@ if __name__ == "__main__":
     from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
 
     market = "a"
-    code = "SH.600038"
+    code = "SH.601991"
+    # code = "SH.600038"
     freq = "d"
 
     ex = ExchangeTDX()
@@ -647,8 +662,8 @@ if __name__ == "__main__":
     klines = ex.klines(code, freq)
     cds = web_batch_get_cl_datas(market, code, {freq: klines}, cl_config)
 
-    interact()
-    res = xg_single_bi_1buy_next_l3buy_mmd(cds)
+    # interact()
+    res = xg_single_xingcheng(cds)
     print(res)
 
 
