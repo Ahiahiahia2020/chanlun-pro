@@ -590,12 +590,18 @@ def xg_single_bi_1buy_next_l3buy_mmd(cl_datas: List[ICL], opt_type: list = []):
     return None
 
 
+
+def interact():
+    """执行后进入repl模式"""
+    import code
+    code.InteractiveConsole(locals=globals()).interact()
+    
 if __name__ == "__main__":
     from chanlun.exchange.exchange_tdx import ExchangeTDX
     from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
 
     market = "a"
-    code = "SZ.000551"
+    code = "SH.600038"
     freq = "d"
 
     ex = ExchangeTDX()
@@ -604,5 +610,8 @@ if __name__ == "__main__":
     klines = ex.klines(code, freq)
     cds = web_batch_get_cl_datas(market, code, {freq: klines}, cl_config)
 
+    interact()
     res = xg_single_bi_1buy_next_l3buy_mmd(cds)
     print(res)
+
+

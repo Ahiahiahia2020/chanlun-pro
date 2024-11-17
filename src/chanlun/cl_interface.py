@@ -1279,6 +1279,26 @@ def compare_ld_beichi(one_ld: dict, two_ld: dict, line_direction: str):
     else:
         return False
 
+def compare_ld_beichi_zry(one_ld: dict, two_ld: dict, line_direction: str):
+    """
+    比较两个力度，后者小于前者，返回 True
+    :param one_ld:
+    :param two_ld:
+    :param line_direction: [up down] 比较线的方向，向上看macd红柱子之和，向下看macd绿柱子之和
+    :return:
+    """
+    hist_key = "sum"
+    if line_direction == "up":
+        hist_key = "up_sum"
+    elif line_direction == "down":
+        hist_key = "down_sum"
+    if "macd" not in two_ld.keys() or "macd" not in one_ld.keys():
+        return False
+    if two_ld["macd"]["hist"][hist_key] < one_ld["macd"]["hist"][hist_key]:
+        return True
+    else:
+        return False
+
 
 def user_custom_mmd(
     cd: ICL,
