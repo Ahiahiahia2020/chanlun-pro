@@ -53,7 +53,7 @@ if __name__ == "__main__":
     try:
         app = create_app()
 
-        s = HTTPServer(WSGIContainer(app, executor=ThreadPoolExecutor(10)))
+        s = HTTPServer(WSGIContainer(app))
         s.bind(9900, config.WEB_HOST)
 
         print("启动成功")

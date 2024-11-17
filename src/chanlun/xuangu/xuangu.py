@@ -591,6 +591,43 @@ def xg_single_bi_1buy_next_l3buy_mmd(cl_datas: List[ICL], opt_type: list = []):
 
 
 
+
+
+def xingchenglidu(line: LINE) -> list:
+    """
+    计算线的行程力度（取绝对值）
+
+    行程力度 = dy / dx
+        dy = 终点与起点的绝对值差异
+        dx = 线段之间的k线数量
+    """
+    if line.end.val == line.start.val:
+        return 0
+
+    dy = abs(line.end.val - line.start.val)
+    dx = line.end.k.k_index - line.start.k.k_index
+    return [dy, dx, dy/dx]
+
+def compare_xingcheng_ld(one_line: dict, two_line: dict, line_direction: str):
+    """
+    比较两个力度，后者小于前者，返回 True
+    :param one_ld:
+    :param two_ld:
+    :param line_direction: [up down] 比较线的方向，向上看macd红柱子之和，向下看macd绿柱子之和
+    :return:
+    """
+    hist_key = "sum"
+    if line_direction == "up":
+        hist_key = "up_sum"
+    elif line_direction == "down":
+        hist_key = "down_sum"
+    if "macd" not in two_ld.keys() or "macd" not in one_ld.keys():
+        return False
+    if two_ld["macd"]["hist"][hist_key] < one_ld["macd"]["hist"][hist_key]:
+        return True
+    else:
+        return False
+
 def interact():
     """执行后进入repl模式"""
     import code
