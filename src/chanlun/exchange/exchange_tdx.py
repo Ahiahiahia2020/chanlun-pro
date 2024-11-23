@@ -65,6 +65,7 @@ class ExchangeTDX(Exchange):
             "y": "Y",
             "m": "M",
             "w": "W",
+            "2d": "2D",
             "d": "D",
             "120m": "120m",
             "60m": "60m",

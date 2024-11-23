@@ -653,7 +653,7 @@ def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
     cd = cl_datas[0]
     xds = cd.get_xds()
     bis = cd.get_bis()
-    reference_date = pd.Timestamp('2024-09-01').tz_localize('UTC')
+    reference_date = pd.Timestamp('2024-11-19').tz_localize('UTC')
     msg = "股票代码：{}，选股周期{},".format(cd.get_code(),cd.get_frequency())
     xc_ld_bc = False
     if (xds[-1].type == 'down' and len(xds) >= 5):
