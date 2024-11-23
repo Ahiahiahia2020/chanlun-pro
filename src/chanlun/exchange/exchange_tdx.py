@@ -174,6 +174,7 @@ class ExchangeTDX(Exchange):
             "m": 6,
             "w": 9,
             "d": 9,
+            "2d": 9,
             "120m": 3,
             "60m": 3,
             "30m": 2,
@@ -278,7 +279,7 @@ class ExchangeTDX(Exchange):
                 ks = self.klines_fq(ks, self.xdxr(market, code, tdx_code), args["fq"])
 
             ks.reset_index(inplace=True)
-            if frequency in ["w", "120m", "10m", "2m"]:
+            if frequency in ["w", "2d", "120m", "10m", "2m"]:
                 ks = convert_stock_kline_frequency(ks, frequency)
 
             ks = ks[["code", "date", "open", "close", "high", "low", "volume"]]
