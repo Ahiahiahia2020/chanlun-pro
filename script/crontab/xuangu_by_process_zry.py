@@ -28,7 +28,7 @@ ex = ExchangeTDX()
 运行的周期，根据自己的选股方法，来设置周期参数
 """
 # frequencys = ["d"]
-frequencys = ['d', "30m"]
+frequencys = ['2d', "60m"]
 
 """
 这里设置选股缠论计算的参数，要与前台展示的配置一致，不然这里选出的股票符合条件，前台页面有可能看不到
@@ -47,7 +47,7 @@ mk_datas = OnlineMarketDatas(
 这个需要确保在 config.py 中有进行配置
 """
 zx = zixuan.ZiXuan("a")
-zx_group = "测试选股"
+zx_group = "测试选股-2日"
 
 
 def xuangu_by_code(code: str):

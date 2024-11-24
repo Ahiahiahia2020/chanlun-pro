@@ -168,17 +168,13 @@ class ExchangeTDX(Exchange):
             args["pages"] = 16
         else:
             args["pages"] = int(args["pages"])
-        origin_freq = "d"
-        if frequency == "2d":
-            origin_freq = "2d"
-            frequency = "d"
 
         frequency_map = {
             "y": 11,
             "m": 6,
             "w": 9,
             "d": 9,
-            # "2d": 9,
+            "2d": 9,
             "120m": 3,
             "60m": 3,
             "30m": 2,
@@ -284,10 +280,7 @@ class ExchangeTDX(Exchange):
 
             ks.reset_index(inplace=True)
             if frequency in ["w", "2d", "120m", "10m", "2m"]:
-
                 ks = convert_stock_kline_frequency(ks, frequency)
-            if origin_freq == "2d":
-                ks = convert_stock_kline_frequency(ks, origin_freq)
 
             ks = ks[["code", "date", "open", "close", "high", "low", "volume"]]
             return ks
