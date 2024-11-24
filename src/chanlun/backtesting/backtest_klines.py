@@ -11,7 +11,7 @@ from chanlun import fun
 from chanlun.backtesting.base import MarketDatas
 from chanlun.cl_interface import *
 from chanlun.exchange.exchange_db import ExchangeDB
-
+from chanlun.exchange.exchange import *
 
 class BackTestKlines(MarketDatas):
     """
@@ -180,7 +180,12 @@ class BackTestKlines(MarketDatas):
 
             if key not in self.cl_datas.keys():
                 # 第一次进行计算
-                klines = self.klines(code, frequency)
+                if frequency == '2d':
+                    freq = "d"
+                    klines = self.klines(code, freq)
+                    klines = convert_stock_kline_frequency(klines, frequency)
+                else :
+                    klines = self.klines(code, frequency)
                 self.cl_datas[key] = cl.CL(code, frequency, cl_config).process_klines(
                     klines
                 )
@@ -354,6 +359,7 @@ class BackTestKlines(MarketDatas):
         market_days_freq_maps = {
             "a": {
                 "w": 10000,
+                "2d": 7000,
                 "d": 7000,
                 "120m": 500,
                 "4h": 500,
@@ -414,6 +420,7 @@ class BackTestKlines(MarketDatas):
         }
         for _freq in [
             "w",
+            "2d",
             "d",
             "120m",
             "6h",

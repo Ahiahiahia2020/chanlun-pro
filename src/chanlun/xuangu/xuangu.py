@@ -631,7 +631,7 @@ def compare_xingcheng_ld(one_line: LINE, two_line: LINE):
     else:
         return False
 
-def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
+def xg_single_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
     import logging
     from typing import List
     logging.basicConfig(filename='xg_single_xingcheng.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -659,10 +659,10 @@ def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
     使用市场:沪深A股
     作者:ZRY
     """
-    cd = cl_datas[0]
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[1])
     xds = cd.get_xds()
     bis = cd.get_bis()
-    reference_date = pd.Timestamp('2024-11-19').tz_localize('UTC')
+    reference_date = pd.Timestamp('2024-01-19').tz_localize('UTC')
     msg = "股票代码：{}，选股周期{},".format(cd.get_code(),cd.get_frequency())
     xc_ld_bc = False
     if (xds[-1].type == 'down' and len(xds) >= 5):
@@ -707,6 +707,105 @@ def xg_single_xingcheng(cl_datas: List[ICL], opt_type: list = []):
                     return {"code": cd.get_code(), "msg": msg, }
     return None
 
+def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
+    import logging
+    from typing import List
+    logging.basicConfig(filename='xg_double_xingcheng.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    """
+    找行程力度背驰的股票
+    逻辑:
+        大周期逻辑：
+        至少6段走势 下上下上下（上）
+        1、最后一个向下段，不是新低
+
+        小周期逻辑：
+         0、要有至少5段重叠
+         0.1、 到最后一个向下段之前，前面一共要有5段，如果包括最新的向上段，那么一共要有6段
+         0.2、 最后一个向下段，区间既不是新高也不是新低
+         0.3、 第一段起点要求为近期最高点
+         1、最后这一段不创新低
+         2、找股票已经存在的最后2个线段,(确保一上一下)
+         3、获取向下线段
+         4、线段内不能超过5笔
+         5、判断段内是否在第四笔上方出现笔三卖
+         5.1、如果有笔3S，判断段内第三笔与最后一笔是否行程背驰
+         5.2、如果没有笔3S，判断线段内第一笔和最后一笔行程是否背驰
+         6、判断黄线最低点出现在线段结束
+         7、判断MACD柱子的最高点不是出现在线段最后一笔的后二分之一内
+         8、判断线段结束日期大于指定日期，例如2024-09-01
+         9、判断线段最后一笔末端要创新低
+         99、都满足则选出该股票加入自选
+    周期：双周期
+    使用市场:沪深A股
+    作者:ZRY
+    """
+    high_cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    xds = high_cd.get_xds()
+    if (xds[-1].type == 'down' and len(xds) >= 5):
+        xds = xds[-5:]
+    elif (xds[-1].type == 'up' and len(xds) >=6):
+        xds = xds[-6:-1]
+    else :
+        return None
+    xd3 = xds[-1]
+    xd2 = xds[-3]
+    xd1 = xds[-5]
+    xds_low = min([_x.low for _x in xds])
+    xds_high = max([_x.high for _x in xds ])
+    print(xd1,xd2,xd3)
+    if (xd3.low > xds_low) :
+        # and (xd3.high > xd2.high) 
+        
+        msg = "股票代码：{}，大周期{}不创新低,".format(high_cd.get_code(),high_cd.get_frequency())
+        low_cd = mk_datas.get_cl_data(code, frequency=mk_datas.frequencys[1])
+        xds = low_cd.get_xds()
+        bis = low_cd.get_bis()
+        reference_date = pd.Timestamp('2024-08-30').tz_localize('UTC')
+        msg += "小周期{},".format(low_cd.get_frequency())
+        xc_ld_bc = False
+        if (xds[-1].type == 'down' and len(xds) >= 5):
+            xds = xds[-5:]
+        elif (xds[-1].type == 'up' and len(xds) >=6):
+            xds = xds[-6:-1]
+        else :
+            return None
+        xd = xds[-1]
+        xd1 = xds[0]
+        xd2 = xds[2]
+        
+        xds_low = min([_x.low for _x in xds])
+        xds_high = max([_x.high for _x in xds ])
+        if (xd1.high == xds_high) \
+            and (xd2.high < xds_high) \
+            and ((xd.low > xds_low ) and (xd.high < xds_high)) \
+            and (xd.end_line.index - xd.start_line.index <=5) \
+            and xd.end_line.low == xd.end_line.end.val \
+            and (reference_date <= xd.end_line.end.k.date):
+            if xd.end_line.index - xd.start_line.index == 4:
+                bi_4 = bis[xd.start_line.index + 3]
+                if bi_4.mmd_exists(["3sell"]) :
+                    print('{}段内第四笔三卖'.format(cd.get_code()))
+                    msg += "段内笔三卖，"
+                    xc_ld_bc = compare_xingcheng_ld(bis[xd.start_line.index + 2],xd.end_line)
+                else :
+                    xc_ld_bc = compare_xingcheng_ld(xd.start_line,xd.end_line)
+            else:
+                xc_ld_bc = compare_xingcheng_ld(xd.start_line,xd.end_line)
+            if xc_ld_bc:
+                msg += "段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
+                deas_xd = low_cd.get_idx()['macd']['dea'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
+                if deas_xd[-1] <= min(deas_xd): #负数 
+                    msg += ",线段结束时def值新低：{:.2f}".format(deas_xd[-1])
+                    macds_xd = low_cd.get_idx()['macd']['hist'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
+                    macds_bi = low_cd.get_idx()['macd']['hist'][xd.end_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
+                    macds_bi_last = macds_bi[int(len(macds_bi)/2):]
+                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                        msg += ",线段结束MACD柱子高度不创新高"
+                        logging.info(msg)
+                        return {"code": low_cd.get_code(), "msg": msg, }
+        return None
+
 
 def interact():
     """执行后进入repl模式"""
@@ -716,23 +815,33 @@ def interact():
 if __name__ == "__main__":
     from chanlun.exchange.exchange_tdx import ExchangeTDX
     from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
+    from chanlun.exchange.exchange import *
+    from chanlun.trader.online_market_datas import OnlineMarketDatas
 
     market = "a"
     # code = "SH.601991"
-    # code = "SH.600276"
-    code = "SZ.301099"
+    code = "SZ.300679"
+    # code = "SZ.301099"
+    code = "SZ.002690"
+    # code = "SH.603818"
     
-    freq = "d"
-
+    frequencys = ['d', '30m']
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config(market, code)
 
-    klines = ex.klines(code, freq)
-    cds = web_batch_get_cl_datas(market, code, {freq: klines}, cl_config)
 
-    
-    res = xg_single_xingcheng(cds)
-    print(res)
+    """
+    获取缠论数据对象
+    """
+    mk_datas = OnlineMarketDatas(
+        "a", frequencys, ex, cl_config, use_cache=False
+    )  # 选股无需使用缓存，使用缓存会占用大量内存
+
+    # xg_res = xg_single_xingcheng(code, mk_datas)
+    # print(xg_res)
+
+    xg_res2 = xg_double_xingcheng(code, mk_datas)
+    print(xg_res2)
     # interact()
 
 

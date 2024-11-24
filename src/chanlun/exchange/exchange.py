@@ -152,12 +152,37 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
     """
     转换股票 k 线到指定的周期
     时间是向后对齐的
-    :param klines:
-    :param to_f:
-    :return:
     """
-
-    # 直接使用 pandas 的 resample 方法进行合并周期
+    # 如果是2日周期，使用特殊处理
+    if to_f == "2d":
+        # 确保日期列是 datetime 类型
+        klines["date"] = pd.to_datetime(klines["date"])
+        
+        # 创建一个组号，每2行一组
+        klines["group"] = (klines.index // 2)
+        
+        # 按组聚合
+        period_klines = klines.groupby("group").agg({
+            "code": "first",
+            "date": "last",     # 使用每组最后一天的日期
+            "open": "first",    # 使用第一天的开盘价
+            "high": "max",      # 使用最高的高点
+            "low": "min",       # 使用最低的低点
+            "close": "last",    # 使用最后一天的收盘价
+            "volume": "sum"     # 累加成交量
+        })
+        
+        # 重置索引
+        period_klines.reset_index(drop=True, inplace=True)
+        
+        # 设置时间为15点收盘时间
+        period_klines["date"] = period_klines["date"].map(
+            lambda d: d.replace(hour=15, minute=0)
+        )
+        
+        return period_klines[["code", "date", "open", "close", "high", "low", "volume"]]
+    
+    # 其他周期保持原有的处理逻辑
     period_maps = {
         "2m": "2min",
         "5m": "5min",
@@ -170,6 +195,10 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
         "m": "M",
     }
     if to_f in period_maps.keys():
+        # 确保日期列是 datetime 类型
+        klines["date"] = pd.to_datetime(klines["date"])
+        
+        # 插入日期索引列并设置为索引
         klines.insert(0, column="date_index", value=klines["date"])
         klines.set_index("date_index", inplace=True)
         period_type = period_maps[to_f]
@@ -204,7 +233,7 @@ def convert_stock_kline_frequency(klines: pd.DataFrame, to_f: str) -> pd.DataFra
         period_klines.drop("date_index", axis=1, inplace=True)
         # 后对其的，最后一个k线的时间不是未来的结束时间，需要特殊处理一下
         # 周期是 d、w、m，将时间设置为 15点收盘时间
-        if to_f in ["d", "w", "m", "2d"]:
+        if to_f in ["d", "w", "m"]:
             period_klines["date"] = period_klines["date"].map(
                 lambda d: d.replace(hour=15, minute=0)
             )
@@ -621,7 +650,7 @@ if __name__ == "__main__":
     from chanlun.exchange.exchange_tdx import ExchangeTDX
     import pandas as pd
 
-    code = "SH.600519"
+    code = "SH.601991"
     # end_date = "2023-10-03 08:30:00"
 
     # ex = ExchangeDB("us")
@@ -629,15 +658,22 @@ if __name__ == "__main__":
     klines_h = ex.klines(code, "60m")
     klines_l = ex.klines(code, "30m")
 
-    print("高周期最后10跟")
-    print(klines_h.tail(10))
-    print("多周期最后10根")
-    print(klines_l.tail(10))
 
-    convert_ch = convert_stock_kline_frequency(klines_l, "60m")
-    print("转换成高周期的最后10根")
-    print(convert_ch.tail(10))
-    print("Done")
+    # 获取日K线数据
+    klines_d = ex.klines(code, "d")
+    #   转换成2日K线
+    klines_2d = convert_stock_kline_frequency(klines_d, "2d")
+    print(klines_d.tail(10))
+    print(klines_2d.tail(5))
+    # print("高周期最后10跟")
+    # print(klines_h.tail(10))
+    # print("多周期最后10根")
+    # print(klines_l.tail(10))
+
+    # convert_ch = convert_stock_kline_frequency(klines_l, "60m")
+    # print("转换成高周期的最后10根")
+    # print(convert_ch.tail(10))
+    # print("Done")
 
     # convert_klines_d = convert_us_kline_frequency(klines_30m, 'd')
     # print('klines_d')

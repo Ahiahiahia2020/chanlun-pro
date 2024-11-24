@@ -359,6 +359,10 @@ def create_app(test_config=None):
                 "50",
                 "60",
             ],
+            "daily_multipliers": [
+                "1",
+                "2",
+            ],
             "has_intraday": True,
             "has_seconds": True if market == "futures" else False,
             "has_daily": True,
