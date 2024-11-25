@@ -815,52 +815,49 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
     找行程力度背驰的股票
     逻辑:
         大周期逻辑：
-        至少8段走势 上下上下上下上（下）
+        至少8段走势 上下上下上下上下（上）
         1、最后一个向下段，不是新低
 
-        小周期逻辑：
-         0、要有至少5段重叠
-         0.1、 到最后一个向下段之前，前面一共要有5段，如果包括最新的向上段，那么一共要有6段
-         0.2、 最后一个向下段，区间既不是新高也不是新低
-         0.3、 第一段起点要求为近期最高点
-         1、最后这一段不创新低
-         2、找股票已经存在的最后2个线段,(确保一上一下)
-         3、获取向下线段
-         4、线段内不能超过5笔
-         5、判断段内是否在第四笔上方出现笔三卖
-         5.1、如果有笔3S，判断段内第三笔与最后一笔是否行程背驰
-         5.2、如果没有笔3S，判断线段内第一笔和最后一笔行程是否背驰
-         6、判断黄线最低点出现在线段结束
-         7、判断MACD柱子的最高点不是出现在线段最后一笔的后二分之一内
-         8、判断线段结束日期大于指定日期，例如2024-09-01
-         9、判断线段最后一笔末端要创新低
-         99、都满足则选出该股票加入自选
+
     周期：双周期
     使用市场:沪深A股
     作者:ZRY
     """
+    reference_date = pd.Timestamp('2024-09-30').tz_localize('UTC')
     high_cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
     xds = high_cd.get_xds()
-    if (xds[-1].type == 'down' and len(xds) >= 5):
-        xds = xds[-5:]
-    elif (xds[-1].type == 'up' and len(xds) >=6):
-        xds = xds[-6:-1]
+    if (xds[-1].type == 'down' and len(xds) >= 8):
+        xds = xds[-8:]
+    elif (xds[-1].type == 'up' and len(xds) >=9):
+        xds = xds[-9:-1]
     else :
         return None
-    xd3 = xds[-1]
-    xd2 = xds[-3]
-    xd1 = xds[-5]
-    xds_low = min([_x.low for _x in xds])
+    xd1 = xds[0]
+    xd2 = xds[1]
+    xd3 = xds[2]
+    xd4 = xds[3]
+    xd5 = xds[4]
+    xd6 = xds[5]
+    xd7 = xds[6]
+    xd8 = xds[7]
+    xds_low = min([_x.low for _x in xds[1:]])
     xds_high = max([_x.high for _x in xds ])
-    print(xd1,xd2,xd3)
-    if (xd3.low > xds_low) :
-        # and (xd3.high > xd2.high) 
+    # print(xd1,xd2,xd3)
+    if(
+        (xd5.high >= xds_high or xd7.high >= xds_high) and
+        xd7.high >= xd1.high and
+        xd7.high >= xd3.high and
+        xd1.low < xds_low and
+        (xd2.low <= xds_low or xd4.low <= xds_low) and
+        xd6.low > xds_low and
+        xd8.low > xd6.low
+    ):
         
-        msg = "股票代码：{}，大周期{}不创新低,".format(high_cd.get_code(),high_cd.get_frequency())
+        msg = "股票代码：{}，大周期{}形态好,最后一段截止日期:{}".format(high_cd.get_code(),high_cd.get_frequency(),xd8.end.k.date)
+        return {"code": high_cd.get_code(), "msg": msg, }
         low_cd = mk_datas.get_cl_data(code, frequency=mk_datas.frequencys[1])
         xds = low_cd.get_xds()
         bis = low_cd.get_bis()
-        reference_date = pd.Timestamp('2024-08-30').tz_localize('UTC')
         msg += "小周期{},".format(low_cd.get_frequency())
         xc_ld_bc = False
         if (xds[-1].type == 'down' and len(xds) >= 5):
@@ -872,7 +869,6 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
         xd = xds[-1]
         xd1 = xds[0]
         xd2 = xds[2]
-        
         xds_low = min([_x.low for _x in xds])
         xds_high = max([_x.high for _x in xds ])
         if (xd1.high == xds_high) \
@@ -903,7 +899,7 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
                         msg += ",线段结束MACD柱子高度不创新高"
                         logging.info(msg)
                         return {"code": low_cd.get_code(), "msg": msg, }
-        return None
+    return None
 
 
 def interact():
@@ -921,12 +917,12 @@ if __name__ == "__main__":
     # code = "SH.601991"
     code = "SZ.300679"
     # code = "SZ.301099"
-    code = "SZ.002690"
+    code = "SH.600038"
     # code = "SH.603818"
     
-    # frequencys = ['d', '30m']
+    frequencys = ['d', '30m']
 
-    frequencys = ['2d', '60m']
+    # frequencys = ['2d', '60m']
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config(market, code)
 
@@ -941,8 +937,10 @@ if __name__ == "__main__":
     # xg_res = xg_single_xingcheng(code, mk_datas)
     # print(xg_res)
 
-    xg_res2 = xg_double_xingcheng(code, mk_datas)
-    print(xg_res2)
+    # xg_res2 = xg_double_xingcheng(code, mk_datas)
+    # print(xg_res2)
+    xg_res = xg_high_level_xingtai(code, mk_datas)
+    print(xg_res)
     # interact()
 
 

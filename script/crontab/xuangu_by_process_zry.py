@@ -27,8 +27,8 @@ ex = ExchangeTDX()
 """
 运行的周期，根据自己的选股方法，来设置周期参数
 """
-# frequencys = ["d"]
-frequencys = ['2d', "60m"]
+frequencys = ["d"]
+# frequencys = ['2d', "60m"]
 
 """
 这里设置选股缠论计算的参数，要与前台展示的配置一致，不然这里选出的股票符合条件，前台页面有可能看不到
@@ -47,7 +47,8 @@ mk_datas = OnlineMarketDatas(
 这个需要确保在 config.py 中有进行配置
 """
 zx = zixuan.ZiXuan("a")
-zx_group = "测试选股-2日"
+zx_group = "测试选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+print(zx_group)
 
 
 def xuangu_by_code(code: str):
@@ -55,7 +56,9 @@ def xuangu_by_code(code: str):
         """
         这里使用自己需要的选股条件方法进行判断 ***
         """
-        xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
+        zx.add_zx_group(zx_group)
+        xg_res = xuangu.xg_high_level_xingtai(code, mk_datas)
+        # xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
         # xg_res = xuangu.xg_single_find_3buy_by_zhuanzhe(code, mk_datas)
         if xg_res is not None:
             stocks = ex.stock_info(code)
