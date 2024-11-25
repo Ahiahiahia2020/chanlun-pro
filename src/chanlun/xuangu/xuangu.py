@@ -812,18 +812,26 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
     logging.basicConfig(filename='xg_high_level_xingtai.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
     """
-    找行程力度背驰的股票
+    找大周期形态好的股票
     逻辑:
         大周期逻辑：
-        至少8段走势 上下上下上下上下（上）
-        1、最后一个向下段，不是新低
-
-
-    周期：双周期
+        至少8段走势 上下上下上下上下（上） 从前往后依次命名为xd1,xd2……xd7,xd8
+        1、从最后一段 线段下(xd8)往前推,前面至少有8个线段
+        2、xd5或xd7创新高
+        3、xd7高点不低于xd1和xd3
+        4、xd1起点是最低点
+        5、xd2或xd4低点是次低点
+        6、xd6低点不低于xd2及xd4
+        7、xd6终点是xd8终点
+        8、xd8低点不低于xd6
+        9、线段结束日期大于指定日期,例如2024-11-01
+        10、【加分项】xd6的低点不低于xd2,xd3,xd4形成的中枢 中点
+        
+    周期：单周期
     使用市场:沪深A股
     作者:ZRY
     """
-    reference_date = pd.Timestamp('2024-09-30').tz_localize('UTC')
+    reference_date = pd.Timestamp('2024-11-01').tz_localize('UTC')
     high_cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
     xds = high_cd.get_xds()
     if (xds[-1].type == 'down' and len(xds) >= 8):
@@ -849,56 +857,16 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
         xd7.high >= xd3.high and
         xd1.low < xds_low and
         (xd2.low <= xds_low or xd4.low <= xds_low) and
-        xd6.low > xds_low and
-        xd8.low > xd6.low
+        xd6.low > xd2.low and
+        xd6.low > xd4.low and
+        xd8.low > xd6.low and
+        xd8.end.k.date >= reference_date
     ):
-        
         msg = "股票代码：{}，大周期{}形态好,最后一段截止日期:{}".format(high_cd.get_code(),high_cd.get_frequency(),xd8.end.k.date)
+        if(xd6.low > (max(xd2.low,xd4.low) + 1/2 * (min(xd1.high,xd3.high) - max(xd2.low,xd4.low)))):
+            msg += "低点位于之前中枢上半区以上，更好!"
+        logging.info(msg)
         return {"code": high_cd.get_code(), "msg": msg, }
-        low_cd = mk_datas.get_cl_data(code, frequency=mk_datas.frequencys[1])
-        xds = low_cd.get_xds()
-        bis = low_cd.get_bis()
-        msg += "小周期{},".format(low_cd.get_frequency())
-        xc_ld_bc = False
-        if (xds[-1].type == 'down' and len(xds) >= 5):
-            xds = xds[-5:]
-        elif (xds[-1].type == 'up' and len(xds) >=6):
-            xds = xds[-6:-1]
-        else :
-            return None
-        xd = xds[-1]
-        xd1 = xds[0]
-        xd2 = xds[2]
-        xds_low = min([_x.low for _x in xds])
-        xds_high = max([_x.high for _x in xds ])
-        if (xd1.high == xds_high) \
-            and (xd2.high < xds_high) \
-            and ((xd.low > xds_low ) and (xd.high < xds_high)) \
-            and (xd.end_line.index - xd.start_line.index <=5) \
-            and xd.end_line.low == xd.end_line.end.val \
-            and (reference_date <= xd.end_line.end.k.date):
-            if xd.end_line.index - xd.start_line.index == 4:
-                bi_4 = bis[xd.start_line.index + 3]
-                if bi_4.mmd_exists(["3sell"]) :
-                    print('{}段内第四笔三卖'.format(cd.get_code()))
-                    msg += "段内笔三卖，"
-                    xc_ld_bc = compare_xingcheng_ld(bis[xd.start_line.index + 2],xd.end_line)
-                else :
-                    xc_ld_bc = compare_xingcheng_ld(xd.start_line,xd.end_line)
-            else:
-                xc_ld_bc = compare_xingcheng_ld(xd.start_line,xd.end_line)
-            if xc_ld_bc:
-                msg += "段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
-                deas_xd = low_cd.get_idx()['macd']['dea'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
-                if deas_xd[-1] <= min(deas_xd): #负数 
-                    msg += ",线段结束时def值新低：{:.2f}".format(deas_xd[-1])
-                    macds_xd = low_cd.get_idx()['macd']['hist'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
-                    macds_bi = low_cd.get_idx()['macd']['hist'][xd.end_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
-                    macds_bi_last = macds_bi[int(len(macds_bi)/2):]
-                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
-                        msg += ",线段结束MACD柱子高度不创新高"
-                        logging.info(msg)
-                        return {"code": low_cd.get_code(), "msg": msg, }
     return None
 
 
@@ -915,12 +883,12 @@ if __name__ == "__main__":
 
     market = "a"
     # code = "SH.601991"
-    code = "SZ.300679"
+    code = "SZ.300926"
     # code = "SZ.301099"
-    code = "SH.600038"
+    # code = "SH.600038"
     # code = "SH.603818"
     
-    frequencys = ['d', '30m']
+    frequencys = ['d']
 
     # frequencys = ['2d', '60m']
     ex = ExchangeTDX()
