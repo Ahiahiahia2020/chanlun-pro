@@ -12,29 +12,29 @@ exchange = ExchangeDB("currency")
 line_exchange = ExchangeBinance()
 
 # 创建表
-stocks = line_exchange.all_stocks()
-codes = [s["code"] for s in stocks]
+# stocks = line_exchange.all_stocks()
+# codes = [s["code"] for s in stocks]
 # codes = ['BTC/USDT']
-# codes = [
-#     'BTC/USDT', 'ETH/USDT', 'ETC/USDT', 'GMT/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'OP/USDT', 'TRB/USDT',
-#     'FIL/USDT', 'NEAR/USDT', 'LINK/USDT', 'MATIC/USDT', 'DOGE/USDT', 'ADA/USDT', 'APE/USDT', 'DOT/USDT',
-#     '1000SHIB/USDT', 'ZEC/USDT', 'REN/USDT', 'FLOW/USDT', 'SAND/USDT', 'ROSE/USDT', 'XRP/USDT', 'RSR/USDT',
-#     'CRV/USDT', 'FTM/USDT', 'ATOM/USDT', 'MANA/USDT', 'GALA/USDT', 'UNFI/USDT', 'DYDX/USDT', 'WAVES/USDT',
-#     'LTC/USDT', 'AXS/USDT', 'THETA/USDT', 'EOS/USDT', 'BCH/USDT', 'GRT/USDT', 'RUNE/USDT'
-# ]
+codes = [
+    'BTC/USDT', 'ETH/USDT', 'ETC/USDT', 'GMT/USDT', 'SOL/USDT', 'BNB/USDT', 'AVAX/USDT', 'OP/USDT', 'TRB/USDT',
+    'FIL/USDT', 'NEAR/USDT', 'LINK/USDT', 'MATIC/USDT', 'DOGE/USDT', 'ADA/USDT', 'APE/USDT', 'DOT/USDT',
+    '1000SHIB/USDT', 'ZEC/USDT', 'REN/USDT', 'FLOW/USDT', 'SAND/USDT', 'ROSE/USDT', 'XRP/USDT', 'RSR/USDT',
+    'CRV/USDT', 'FTM/USDT', 'ATOM/USDT', 'MANA/USDT', 'GALA/USDT', 'UNFI/USDT', 'DYDX/USDT', 'WAVES/USDT',
+    'LTC/USDT', 'AXS/USDT', 'THETA/USDT', 'EOS/USDT', 'BCH/USDT', 'GRT/USDT', 'RUNE/USDT'
+]
 sync_frequencys = ["w", "d", "4h", "60m", "30m", "15m", "10m", "5m", "1m"]
 
 # TODO 同步各个周期的起始时间
 f_start_time_maps = {
-    "w": "2000-01-01 00:00:00",
-    "d": "2000-01-01 00:00:00",
-    "4h": "2000-01-01 00:00:00",
-    "60m": "2000-01-01 00:00:00",
-    "30m": "2000-01-01 00:00:00",
-    "15m": "2000-01-01 00:00:00",
-    "10m": "2000-01-01 00:00:00",
-    "5m": "2000-01-01 00:00:00",
-    "1m": "2000-01-01 00:00:00",
+    "w": "2019-01-01 00:00:00",
+    "d": "2021-01-01 00:00:00",
+    "4h": "2024-01-01 00:00:00",
+    "60m": "2024-10-01 00:00:00",
+    "30m": "2024-10-01 00:00:00",
+    "15m": "2024-11-01 00:00:00",
+    "10m": "2024-11-01 00:00:00",
+    "5m": "2024-11-01 00:00:00",
+    "1m": "2024-11-01 00:00:00",
 }
 
 if __name__ == "__main__":

@@ -25,9 +25,9 @@ class TraderCurrency(BackTestTrader):
         self.ex = ExchangeBinance()
 
         # 分仓数
-        self.poss_max = 8
+        self.poss_max = 5
         # 使用的杠杆倍数
-        self.leverage = 2
+        self.leverage = 20
 
         self.zx = zixuan.ZiXuan("currency")
 
@@ -44,6 +44,7 @@ class TraderCurrency(BackTestTrader):
             open_usdt = balance["free"] / (self.poss_max - len(positions)) * 0.98
             ticks = self.ex.ticks([code])
             amount = (open_usdt / ticks[code].last) * self.leverage
+            print(code,amount,self.leverage)
             res = self.ex.order(code, "open_long", amount, {"leverage": self.leverage})
             if res is False:
                 utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} open buy 下单失败")
@@ -190,3 +191,50 @@ class TraderCurrency(BackTestTrader):
         except Exception as e:
             utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} close sell 异常: {str(e)}")
             return False
+        
+if __name__ == "__main__":
+    TR = TraderCurrency("Currency")
+    code = "BTC/USDT"
+    # opt_buy = Operation(
+    #             code=code,
+    #             opt="buy",
+    #             mmd="",
+    #             loss_price=91845,
+    #             info={
+    #             },
+    #             msg="test",
+    #         )
+    # TR.open_buy(code, opt_buy) ##做多买入
+
+    opt_sell = Operation(
+                code=code, opt="sell", mmd="", msg="test——做多平仓"
+            )
+    
+    pos = POSITION(code, "")
+    pos.price=92786.5
+    pos.amount=0.002
+    TR.close_buy(code, pos=pos  ,opt = opt_sell)
+    # 测试做空
+    # code2 = "DOGE/USDT"
+    # opt = Operation(
+    #             code=code,
+    #             opt="sell",
+    #             mmd="",
+    #             loss_price=0.033,
+    #             info={
+    #             },
+    #             msg="test",
+    #         )
+    # TR.open_sell(code, opt) ##做空买入
+
+
+    # TR.open_sell(code2, opt = opts[0])
+    # positions = TR.ex.positions()
+    # print(positions)
+    # opt_sell = Operation(
+    #             code=code2, opt="buy", mmd="", msg="test——做空平仓"
+    #         )
+    # pos = POSITION(code2, "")
+    # pos.price=0.37241
+    # pos.amount=45
+    # TR.close_sell(code2, pos=pos  ,opt = opt_sell)

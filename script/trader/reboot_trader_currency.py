@@ -17,7 +17,7 @@ try:
     ex = ExchangeBinance()
     run_num = 30
     run_codes = ex.ticker24HrRank(run_num)
-    frequencys = ["30m"]
+    frequencys = ["1m"]
 
     cl_config = {
         # 分型默认配置

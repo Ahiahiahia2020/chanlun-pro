@@ -367,7 +367,7 @@ if __name__ == "__main__":
 
     ex = ExchangeBinance()
 
-    klines = ex.klines("BTC/USDT", "60m")
+    klines = ex.klines("BTC/USDT", "1m", start_date="2024-11-26 12:30:00")
     print(klines)
 
     # zx = zixuan.ZiXuan("currency")
@@ -387,5 +387,5 @@ if __name__ == "__main__":
 
     # print("Error codes : ", error_codes)
 
-    # balance = ex.balance()
-    # print(balance)
+    balance = ex.balance()
+    print(balance)
