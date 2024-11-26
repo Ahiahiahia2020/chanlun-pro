@@ -761,7 +761,7 @@ def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
         low_cd = mk_datas.get_cl_data(code, frequency=mk_datas.frequencys[1])
         xds = low_cd.get_xds()
         bis = low_cd.get_bis()
-        reference_date = pd.Timestamp('2024-08-30').tz_localize('UTC')
+        reference_date = pd.Timestamp('2024-11-20').tz_localize('UTC')
         msg += "小周期{},".format(low_cd.get_frequency())
         xc_ld_bc = False
         if (xds[-1].type == 'down' and len(xds) >= 5):

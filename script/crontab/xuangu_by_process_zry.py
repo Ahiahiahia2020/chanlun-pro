@@ -28,8 +28,8 @@ ex = ExchangeTDX()
 运行的周期，根据自己的选股方法，来设置周期参数
 """
 frequencys = ["d"]
-# frequencys = ['2d', "60m"]
-
+frequencys = ['2d', "60m"]
+# frequencys = ["d","30m"]
 """
 这里设置选股缠论计算的参数，要与前台展示的配置一致，不然这里选出的股票符合条件，前台页面有可能看不到
 """
@@ -49,16 +49,19 @@ mk_datas = OnlineMarketDatas(
 zx = zixuan.ZiXuan("a")
 zx_group = "测试选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
 print(zx_group)
-
+# 清空选股自选
+zx.clear_zx_stocks(zx_group)
+zx.add_zx_group(zx_group)
 
 def xuangu_by_code(code: str):
     try:
         """
         这里使用自己需要的选股条件方法进行判断 ***
         """
-        zx.add_zx_group(zx_group)
-        xg_res = xuangu.xg_high_level_xingtai(code, mk_datas)
-        # xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
+        
+        # xg_res = xuangu.xg_single_xingcheng(code, mk_datas)
+        # xg_res = xuangu.xg_high_level_xingtai(code, mk_datas)
+        xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
         # xg_res = xuangu.xg_single_find_3buy_by_zhuanzhe(code, mk_datas)
         if xg_res is not None:
             stocks = ex.stock_info(code)
@@ -77,6 +80,9 @@ def xuangu_by_code(code: str):
 
 
 if __name__ == "__main__":
+    zx_groups = zx.get_zx_groups()
+    print(zx_groups)
+    
     _stime = time.time()
     # 多进程进行选股操作（不能开太多，避免 tdx 服务进行限制）
     with ProcessPoolExecutor(
@@ -89,10 +95,10 @@ if __name__ == "__main__":
         codes = [
             _s["code"] for _s in codes if _s["code"][0:5] in ["SH.60", "SZ.00", "SZ.30"]
         ]
+        # select_group = "测试选股-20241125-2216"
+        # codes_info = zx.zx_stocks(select_group)
+        # codes = [_s["code"] for _s in codes_info]
         print("运行股票数量：", len(codes))
-
-        # 清空选股自选
-        zx.clear_zx_stocks(zx_group)
 
         bar = tqdm(total=len(codes), desc="选股进度")
         for _r in executor.map(xuangu_by_code, codes):
