@@ -165,7 +165,7 @@ class ExchangeTDX(Exchange):
         if "use_cache" not in args.keys():
             args["use_cache"] = True
         if "pages" not in args.keys():
-            args["pages"] = 16
+            args["pages"] = 24
         else:
             args["pages"] = int(args["pages"])
 

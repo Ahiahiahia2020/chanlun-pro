@@ -4,7 +4,7 @@ import time
 
 from chanlun import zixuan
 from chanlun.cl_interface import *
-from chanlun.cl_utils import web_batch_get_cl_datas, query_cl_chart_config
+from chanlun.cl_utils import query_cl_chart_config
 from chanlun.exchange.exchange_tdx import ExchangeTDX
 from chanlun.xuangu import xuangu
 from chanlun.trader.online_market_datas import OnlineMarketDatas
@@ -28,8 +28,8 @@ ex = ExchangeTDX()
 运行的周期，根据自己的选股方法，来设置周期参数
 """
 frequencys = ["d"]
-frequencys = ['2d', "60m"]
-# frequencys = ["d","30m"]
+# frequencys = ['2d', "60m"]
+frequencys = ["d","30m"]
 """
 这里设置选股缠论计算的参数，要与前台展示的配置一致，不然这里选出的股票符合条件，前台页面有可能看不到
 """
@@ -47,7 +47,9 @@ mk_datas = OnlineMarketDatas(
 这个需要确保在 config.py 中有进行配置
 """
 zx = zixuan.ZiXuan("a")
-zx_group = "测试选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+# zx_group = "测试选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+# zx_group = "日线形态选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+zx_group = "段内笔背驰-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
 print(zx_group)
 # 清空选股自选
 zx.clear_zx_stocks(zx_group)
@@ -59,9 +61,12 @@ def xuangu_by_code(code: str):
         这里使用自己需要的选股条件方法进行判断 ***
         """
         
-        # xg_res = xuangu.xg_single_xingcheng(code, mk_datas)
-        # xg_res = xuangu.xg_high_level_xingtai(code, mk_datas)
-        xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
+        # xg_res = xuangu.xg_single_xingcheng(code, mk_datas,datestr="2024-11-27")
+        # xg_res = xuangu.xg_high_level_xingtai(code, mk_datas,datestr="2024-11-28")
+        
+        # xg_res = xuangu.xg_high_level_xingtai_plus(code, mk_datas,datestr="2024-11-28")
+        
+        xg_res = xuangu.xg_double_xingcheng(code, mk_datas,datestr="2024-11-27")
         # xg_res = xuangu.xg_single_find_3buy_by_zhuanzhe(code, mk_datas)
         if xg_res is not None:
             stocks = ex.stock_info(code)
@@ -80,9 +85,8 @@ def xuangu_by_code(code: str):
 
 
 if __name__ == "__main__":
-    zx_groups = zx.get_zx_groups()
-    print(zx_groups)
     
+
     _stime = time.time()
     # 多进程进行选股操作（不能开太多，避免 tdx 服务进行限制）
     with ProcessPoolExecutor(
@@ -104,5 +108,15 @@ if __name__ == "__main__":
         for _r in executor.map(xuangu_by_code, codes):
             bar.update(1)
 
+    zx_groups = zx.get_zx_groups()
+    zx_names = [_zx["name"] for _zx in zx.zixuan_list]
+    for zx_name in zx_names:
+        # if '日线形态' in zx_name:
+        if len(zx.zx_stocks(zx_name)) == 0:
+            print("删除无用的自选组：%s" % zx_name)
+            zx.del_zx_group(zx_name)
+    zx_groups = zx.get_zx_groups()
+    zx_names = [_zx["name"] for _zx in zx.zixuan_list]
+    print(zx_names)
     print("运行时间：%s" % (time.time() - _stime))
     print("Done")

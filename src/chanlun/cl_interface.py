@@ -1279,7 +1279,34 @@ def compare_ld_beichi(one_ld: dict, two_ld: dict, line_direction: str):
     else:
         return False
 
+def xingchenglidu(line: LINE) -> list:
+    """
+    计算线的行程力度（取绝对值）
 
+    行程力度 = dy / dx
+        dy = 终点与起点的绝对值差异
+        dx = 线段之间的k线数量
+    """
+    if line.end.val == line.start.val:
+        return 0
+
+    dy = abs(line.end.val - line.start.val)
+    dx = line.end.k.k_index - line.start.k.k_index
+    return [dy, dx, dy/dx]
+
+def compare_xingcheng_ld(one_line: LINE, two_line: LINE):
+    """
+    比较两个线的力度，后者小于前者，返回 True
+    :param one_line:
+    :param two_line:
+    :return:
+    """
+    dy1, dx1, ld1 = xingchenglidu(one_line)
+    dy2, dx2, ld2 = xingchenglidu(two_line)
+    if ( (dy2 > dy1) and  (ld2 < ld1)):
+        return True
+    else:
+        return False
 
 def user_custom_mmd(
     cd: ICL,
@@ -1365,4 +1392,85 @@ def user_custom_mmd(
                 msg="三卖后，重叠中枢后，不创三卖高点，形成类三卖",
             )
 
+
+    #自定义增加段内笔背驰形成一买点
+    #判断是线段类型,不是笔也不是走势段
+    if hasattr(line, 'start_line') and not hasattr(line.start_line, 'start_line'):
+        """
+        判断行程力度背驰逻辑:
+         4、线段内不能超过5笔
+         5、判断段内是否在第四笔上方出现笔三卖
+         5.1、如果有笔3S，判断段内第三笔与最后一笔是否行程背驰
+         5.2、如果没有笔3S，判断线段内第一笔和最后一笔行程是否背驰
+         6、判断黄线最低点出现在线段结束
+         7、判断MACD柱子的最高点不是出现在线段最后一笔的后二分之一内
+         9、判断线段最后一笔末端要创新低
+        """
+        if (line.end_line.index - line.start_line.index <=5) \
+            and line.low == line.end_line.end.val :
+            if line.end_line.index - line.start_line.index == 4:
+                bis = cd.get_bis()
+                bi_4 = bis[line.start_line.index + 3]
+                if bi_4.mmd_exists(["3sell"]) :
+                    xc_ld_bc = compare_xingcheng_ld(bis[line.start_line.index + 2],line.end_line)
+                else :
+                    xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            else:
+                xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            if xc_ld_bc:
+                print("{}周期{}段内笔行程背驰,线段结束时间：{}".format(cd.get_code(),cd.get_frequency(),line.end.k.date))
+                deas_xd = cd.get_idx()['macd']['dea'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                if deas_xd[-1] <= min(deas_xd): #负数 
+                    print("线段结束时def值新低：{:.2f}".format(deas_xd[-1]))
+                    macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi_last = macds_bi[int(len(macds_bi)/2):]
+                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                        print("线段结束MACD柱子高度不创新高，形成一买")
+                        line.add_mmd(
+                            "1buy",
+                            zss[-1],
+                            zs_type,
+                           msg="段内笔行程背驰，形成一买",
+                        )
+    # 走势段
+    elif hasattr(line, 'start_line') and hasattr(line.start_line, 'start_line'):
+        """
+        判断行程力度背驰逻辑:
+         4、线段内不能超过5笔
+         5、判断段内是否在第四笔上方出现笔三卖
+         5.1、如果有笔3S，判断段内第三笔与最后一笔是否行程背驰
+         5.2、如果没有笔3S，判断线段内第一笔和最后一笔行程是否背驰
+         6、判断黄线最低点出现在线段结束
+         7、判断MACD柱子的最高点不是出现在线段最后一笔的后二分之一内
+         9、判断线段最后一笔末端要创新低
+        """
+        if (line.end_line.index - line.start_line.index <=5) \
+            and line.low == line.end_line.end.val :
+            if line.end_line.index - line.start_line.index == 4:
+                xds = cd.get_xds()
+                xd_4 = xds[line.start_line.index + 3]
+                if xd_4.mmd_exists(["3sell"]) :
+                    xc_ld_bc = compare_xingcheng_ld(xds[line.start_line.index + 2],line.end_line)
+                else :
+                    xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            else:
+                xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            if xc_ld_bc:
+                print("{}周期{}走势段内线段行程背驰,走势段结束时间：{}".format(cd.get_code(),cd.get_frequency(),line.end.k.date))
+                deas_xd = cd.get_idx()['macd']['dea'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                if deas_xd[-1] <= min(deas_xd): #负数 
+                    print("走势段结束时def值新低：{:.2f}".format(deas_xd[-1]))
+                    macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi_last = macds_bi[int(len(macds_bi)/2):]
+                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                        print("走势段结束MACD柱子高度不创新高，形成一买")
+                        line.add_mmd(
+                            "1buy",
+                            zss[-1],
+                            zs_type,
+                           msg="走势段内线段行程背驰，形成一买",
+                        )
+       
     return True

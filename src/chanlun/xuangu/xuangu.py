@@ -631,7 +631,7 @@ def compare_xingcheng_ld(one_line: LINE, two_line: LINE):
     else:
         return False
 
-def xg_single_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
+def xg_single_xingcheng(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
     import logging
     from typing import List
     logging.basicConfig(filename='xg_single_xingcheng.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -662,7 +662,7 @@ def xg_single_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
     cd = mk_datas.get_cl_data(code, mk_datas.frequencys[1])
     xds = cd.get_xds()
     bis = cd.get_bis()
-    reference_date = pd.Timestamp('2024-01-19').tz_localize('UTC')
+    reference_date = pd.Timestamp(datestr).tz_localize('UTC')
     msg = "股票代码：{}，选股周期{},".format(cd.get_code(),cd.get_frequency())
     xc_ld_bc = False
     if (xds[-1].type == 'down' and len(xds) >= 5):
@@ -707,7 +707,7 @@ def xg_single_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
                     return {"code": cd.get_code(), "msg": msg, }
     return None
 
-def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
+def xg_double_xingcheng(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
     import logging
     from typing import List
     logging.basicConfig(filename='xg_double_xingcheng.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -753,7 +753,7 @@ def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
     xd1 = xds[-5]
     xds_low = min([_x.low for _x in xds])
     xds_high = max([_x.high for _x in xds ])
-    print(xd1,xd2,xd3)
+    # print(xd1,xd2,xd3)
     if (xd3.low > xds_low) :
         # and (xd3.high > xd2.high) 
         
@@ -761,7 +761,7 @@ def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
         low_cd = mk_datas.get_cl_data(code, frequency=mk_datas.frequencys[1])
         xds = low_cd.get_xds()
         bis = low_cd.get_bis()
-        reference_date = pd.Timestamp('2024-11-20').tz_localize('UTC')
+        reference_date = pd.Timestamp(datestr).tz_localize('UTC')
         msg += "小周期{},".format(low_cd.get_frequency())
         xc_ld_bc = False
         if (xds[-1].type == 'down' and len(xds) >= 5):
@@ -806,7 +806,7 @@ def xg_double_xingcheng(code: str, mk_datas: MarketDatas, opt_type: list = []):
                         return {"code": low_cd.get_code(), "msg": msg, }
         return None
 
-def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = []):
+def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
     import logging
     from typing import List
     logging.basicConfig(filename='xg_high_level_xingtai.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -831,7 +831,7 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
     使用市场:沪深A股
     作者:ZRY
     """
-    reference_date = pd.Timestamp('2024-11-01').tz_localize('UTC')
+    reference_date = pd.Timestamp(datestr).tz_localize('UTC')
     high_cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
     xds = high_cd.get_xds()
     if (xds[-1].type == 'down' and len(xds) >= 8):
@@ -865,6 +865,68 @@ def xg_high_level_xingtai(code: str, mk_datas: MarketDatas, opt_type: list = [])
         msg = "股票代码：{}，大周期{}形态好,最后一段截止日期:{}".format(high_cd.get_code(),high_cd.get_frequency(),xd8.end.k.date)
         if(xd6.low > (max(xd2.low,xd4.low) + 1/2 * (min(xd1.high,xd3.high) - max(xd2.low,xd4.low)))):
             msg += "低点位于之前中枢上半区以上，更好!"
+        logging.info(msg)
+        return {"code": high_cd.get_code(), "msg": msg, }
+    return None
+
+def xg_high_level_xingtai_plus(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
+    import logging
+    from typing import List
+    logging.basicConfig(filename='xg_high_level_xingtai.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    """
+    找大周期形态好的股票
+    逻辑:
+        大周期逻辑：
+        至少8段走势 上下上下上下上下（上） 从前往后依次命名为xd1,xd2……xd7,xd8
+        1、从最后一段 线段下(xd8)往前推,前面至少有8个线段
+        2、xd5或xd7创新高
+        3、xd7高点不低于xd1和xd3
+        4、xd1起点是最低点
+        5、xd2或xd4低点是次低点
+        6、xd6低点不低于xd2及xd4
+        7、xd6终点是xd8终点
+        8、xd8低点不低于xd6
+        9、线段结束日期大于指定日期,例如2024-11-01
+        10、【加分项】xd6的低点不低于xd2,xd3,xd4形成的中枢 中点
+        
+    周期：单周期
+    使用市场:沪深A股
+    作者:ZRY
+    """
+    reference_date = pd.Timestamp(datestr).tz_localize('UTC')
+    high_cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    xds = high_cd.get_xds()
+    if (xds[-1].type == 'down' and len(xds) >= 8):
+        xds = xds[-8:]
+    elif (xds[-1].type == 'up' and len(xds) >=9):
+        xds = xds[-9:-1]
+    else :
+        return None
+    xd1 = xds[0]
+    xd2 = xds[1]
+    xd3 = xds[2]
+    xd4 = xds[3]
+    xd5 = xds[4]
+    xd6 = xds[5]
+    xd7 = xds[6]
+    xd8 = xds[7]
+    xds_low = min([_x.low for _x in xds[1:]])
+    xds_high = max([_x.high for _x in xds ])
+    # print(xd1,xd2,xd3)
+    if(
+        (xd5.high >= xds_high or xd7.high >= xds_high) and
+        xd7.high >= xd1.high and
+        xd7.high >= xd3.high and
+        xd1.low < xds_low and
+        (xd2.low <= xds_low or xd4.low <= xds_low) and
+        xd6.low > xd2.low and
+        xd6.low > xd4.low and
+        xd8.low > xd6.low and
+        xd8.end.k.date >= reference_date and
+        xd6.low > (max(xd2.low,xd4.low) + 1/2 * (min(xd1.high,xd3.high) - max(xd2.low,xd4.low)))
+    ):
+        msg = "股票代码：{}，大周期{}形态好,重心上移，最后一段截止日期:{}".format(high_cd.get_code(),high_cd.get_frequency(),xd8.end.k.date)
         logging.info(msg)
         return {"code": high_cd.get_code(), "msg": msg, }
     return None
@@ -907,7 +969,7 @@ if __name__ == "__main__":
 
     # xg_res2 = xg_double_xingcheng(code, mk_datas)
     # print(xg_res2)
-    xg_res = xg_high_level_xingtai(code, mk_datas)
+    xg_res = xg_high_level_xingtai(code, mk_datas, datestr="2024-11-28")
     print(xg_res)
     # interact()
 
