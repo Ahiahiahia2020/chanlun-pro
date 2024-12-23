@@ -696,7 +696,7 @@ def xg_single_xingcheng(code: str, mk_datas: MarketDatas, datestr: str = '2024-1
         if xc_ld_bc:
             msg += "段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
             deas_xd = cd.get_idx()['macd']['dea'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
-            if deas_xd[-1] <= min(deas_xd): #负数 
+            if ((len(deas_xd) > 0) and deas_xd[-1] <= min(deas_xd)): #负数 
                 msg += ",线段结束时def值新低：{:.2f}".format(deas_xd[-1])
                 macds_xd = cd.get_idx()['macd']['hist'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
                 macds_bi = cd.get_idx()['macd']['hist'][xd.end_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
@@ -795,7 +795,7 @@ def xg_double_xingcheng(code: str, mk_datas: MarketDatas, datestr: str = '2024-1
             if xc_ld_bc:
                 msg += "段内笔行程背驰,线段结束时间：{}".format(xd.end.k.date)
                 deas_xd = low_cd.get_idx()['macd']['dea'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
-                if deas_xd[-1] <= min(deas_xd): #负数 
+                if ((len(deas_xd) > 0) and deas_xd[-1] <= min(deas_xd)): #负数 
                     msg += ",线段结束时def值新低：{:.2f}".format(deas_xd[-1])
                     macds_xd = low_cd.get_idx()['macd']['hist'][xd.start_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
                     macds_bi = low_cd.get_idx()['macd']['hist'][xd.end_line.start.k.k_index:xd.end_line.end.k.k_index + 1]
@@ -931,6 +931,137 @@ def xg_high_level_xingtai_plus(code: str, mk_datas: MarketDatas, datestr: str = 
         return {"code": high_cd.get_code(), "msg": msg, }
     return None
 
+def xg_single_ma_5_5k(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
+    """
+    358选股方法,第二版优化，周线使用
+    1、最后一个笔,要求是上升笔,(说明站上5均线，且还未形成下降笔)
+    2、上升笔结束到最后一个交易周期,中间一共4根k线（说明上升笔后未创新高，数5根k线）
+    3、整个笔的涨幅,要求控制在50%-60%
+
+
+    #第一版
+    1、 收盘站上ma5日线纳入观察
+    2、 等不创新高后,数4根k线
+    3、 第5根k线开盘买入
+    4、 止损第4根k线最低点
+    5、 止盈 跌破3日均线
+    周期：单周期,默认周线
+    使用市场:沪深A股
+    作者：缠门缠哥
+    """
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    closes = np.array([_k.c for _k in cd.get_src_klines()])
+    ma5 = talib.MA(closes, timeperiod=5)
+    # ma3 = talib.MA(closes, timeperiod=3)
+    bi = cd.get_bis()[-1]
+    if (bi.type == "up" 
+        and (bi.end.k.c > ma5[bi.end.k.k_index])
+        and ((bi.high - bi.low) <= 0.6 * bi.low) 
+        and ((bi.high - bi.low) >= 0.5 * bi.low)
+        and (cd.get_src_klines()[-1].date - bi.end.k.date == datetime.timedelta(weeks=4))
+        ):
+            msg = "股票代码：{},符合选股条件".format(cd.get_code())
+            return {"code": cd.get_code(), "msg":msg}
+    return None
+
+def xg_single_ma_5_8k(code: str, mk_datas: MarketDatas, datestr: str = '2024-11-27'):
+    """
+    358选股-8k方法，周线使用
+    1、获取最后一个上升笔,8k可能已经有下降笔，那就找倒数第二笔
+    2、上升笔结束到最后一个交易周期,中间一共7根k线（说明上升笔后未创新高，数8根k线）
+    3、整个笔的涨幅,要求控制在50%-60%
+    周期：单周期,默认周线
+    使用市场:沪深A股
+    作者：缠门缠哥
+    """
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    closes = np.array([_k.c for _k in cd.get_src_klines()])
+    ma5 = talib.MA(closes, timeperiod=5)
+    # ma3 = talib.MA(closes, timeperiod=3)
+    bi = cd.get_bis()[-1]
+    if (bi.type != "up"):
+        bi = cd.get_bis()[-2]
+    if ((bi.end.k.c > ma5[bi.end.k.k_index])
+    # and ((bi.high - bi.low) <= 0.6 * bi.low) 
+    # and ((bi.high - bi.low) >= 0.5 * bi.low)
+    and (cd.get_src_klines()[-1].date - bi.end.k.date == datetime.timedelta(weeks=7))
+    ):
+        msg = "股票代码：{},符合选股条件".format(cd.get_code())
+        return {"code": cd.get_code(), "msg":msg}
+    return None
+
+def xg_double_xingtai_dnbbc(code: str, mk_datas: MarketDatas, datestr: str = '2018-11-27'):
+    import logging
+    from typing import List
+    logging.basicConfig(filename='xg_double_xingtai_dnbbc.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    reference_date = pd.Timestamp(datestr).tz_localize('UTC')
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    all_lines = cd.get_xds()
+    msgs = ""
+    for i in range(4,len(all_lines)):
+        # print("loop:%d"%i)
+        lines = all_lines[:i]
+        line = lines[-1]
+        kdate = cd.get_src_klines()[-1].date
+        # kdate = line.end.k.date
+        #自定义增加段内笔背驰形成一买点
+        #判断是线段类型,不是笔也不是走势段
+        """
+        判断行程力度背驰逻辑:
+         4、线段内不能超过5笔
+         5、判断段内是否在第四笔上方出现笔三卖
+         5.1、如果有笔3S，判断段内第三笔与最后一笔是否行程背驰
+         5.2、如果没有笔3S，判断线段内第一笔和最后一笔行程是否背驰
+         6、判断黄线最低点出现在线段结束
+         7、判断MACD柱子的最高点不是出现在线段最后一笔的后二分之一内
+         9、判断线段最后一笔末端要创新低
+        """
+        ##extra 增加选股判断打印
+        xuangu_flag = False
+
+        if (len(lines) >= 5 
+            and line.type == 'down'
+            and (min(lines[-5].high,lines[-3].high,line.high) > max(lines[-5].low,lines[-3].low,line.low))
+            and lines[-2].high == lines[-2].end_line.high
+            and line.low == line.end_line.low
+            and line.low > lines[-3].low 
+            
+            and line.end.done
+
+        ):
+            xuangu_flag = True
+
+        if (line.end_line.index - line.start_line.index <=5) \
+            and line.low == line.end_line.end.val :
+            if line.end_line.index - line.start_line.index == 4:
+                bis = cd.get_bis()
+                bi_4 = bis[line.start_line.index + 3]
+                if bi_4.mmd_exists(["3sell"]) :
+                    xc_ld_bc = compare_xingcheng_ld(bis[line.start_line.index + 2],line.end_line)
+                else :
+                    xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            else:
+                xc_ld_bc = compare_xingcheng_ld(line.start_line,line.end_line)
+            if xc_ld_bc:
+                # print("{}周期{}段内笔行程背驰,线段结束时间：{}".format(cd.get_code(),cd.get_frequency(),line.end.k.date))
+                deas_xd = cd.get_idx()['macd']['dea'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                if ((len(deas_xd) > 0) and deas_xd[-1] <= min(deas_xd)): #负数 
+                    # print("线段结束时def值新低：{:.2f}".format(deas_xd[-1]))
+                    macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
+                    macds_bi_last = macds_bi[int(len(macds_bi)/2):]
+                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                        # print("线段结束MACD柱子高度不创新高，形成一买")
+                        if xuangu_flag:
+                            msg = "{}周期{}形态符合要求且形成一买，线段结束时间：{},检出时间{}\n".format(cd.get_code(),cd.get_frequency(),line.end.k.date,kdate)
+                            print(msg)
+                            logging.info(msg)
+                            msgs += msg
+    if len(msgs) > 0:
+        return {"code": cd.get_code(), "msg": msgs, }
+    else :
+        return None
 
 def interact():
     """执行后进入repl模式"""
@@ -939,16 +1070,17 @@ def interact():
     
 if __name__ == "__main__":
     from chanlun.exchange.exchange_tdx import ExchangeTDX
-    from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
+    from chanlun.cl_utils import query_cl_chart_config
     from chanlun.exchange.exchange import *
     from chanlun.trader.online_market_datas import OnlineMarketDatas
 
     market = "a"
     # code = "SH.601991"
-    code = "SZ.300926"
+    # code = "SZ.300926"
     # code = "SZ.301099"
-    # code = "SH.600038"
+    code = "SH.601333"
     # code = "SH.603818"
+    code = "SZ.300044"
     
     frequencys = ['d']
 
@@ -969,7 +1101,8 @@ if __name__ == "__main__":
 
     # xg_res2 = xg_double_xingcheng(code, mk_datas)
     # print(xg_res2)
-    xg_res = xg_high_level_xingtai(code, mk_datas, datestr="2024-11-28")
+    # xg_res = xg_high_level_xingtai(code, mk_datas, datestr="2024-11-28")
+    xg_res = xg_double_xingtai_dnbbc(code, mk_datas)
     print(xg_res)
     # interact()
 

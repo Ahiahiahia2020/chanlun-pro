@@ -593,7 +593,7 @@ class Strategy(ABC):
         """
         # 如果之前已经设置过，退出
         if pos.loss_price == pos.price:
-            return None
+            return False
         # 止损比例
         loss_rate = abs((pos.price - pos.loss_price) / pos.price * 100)
         if pos.max_profit_rate >= (loss_rate * loss_multiple):
