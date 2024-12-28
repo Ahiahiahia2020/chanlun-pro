@@ -28,8 +28,16 @@ db_ex = ExchangeDB("a")
 
 symbols = get_symbols(sec_type1=1010, sec_type2=101001)
 run_codes = [_s["exchange"] + "." + _s["sec_id"] for _s in symbols]
-# 增加上证指数代码
+# 增加指数代码
 run_codes.append("SHSE.000001")
+run_codes.append("SHSE.000016")
+run_codes.append("SHSE.000300")
+run_codes.append("SHSE.000905")
+run_codes.append("SHSE.000852")
+run_codes.append("SHSE.000688")
+run_codes.append("SZSE.399001")
+run_codes.append("SZSE.399006")
+
 
 print("Sync Len : ", len(run_codes))
 

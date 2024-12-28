@@ -36,9 +36,15 @@ run_codes = [_s["exchange"] + "." + _s["sec_id"] for _s in symbols]
 # run_codes = []
 for _c in [
     "SH.000001",  # 上证指数
+    "SH.000016",  # sz50
+    "SH.000300",  # hs300
     "SZ.399001",  # 深圳指数
-    "SZ.399006",  # 创业板指
+    "SH.000905",  # zz500
     "SH.000852",  # 中证1000
+    "SZ.399006",  # 创业板指
+    "SH.000688",  # kc50
+
+
 ]:
     run_codes.append(_c.replace("SZ.", "SZSE.").replace("SH.", "SHSE."))
 
@@ -124,7 +130,7 @@ def convert_code(code):
         # 统一删除，重新计算
         # db_ex.del_klines_by_code(db_code)
 
-        for f in ["30m", "d"]:
+        for f in ["5m", "15m", "30m", "60m", "d"]:
             # 获取最后一根k线数据
             last_klines = db_ex.klines(db_code, f, args={"limit": 10})
             if len(last_klines) != 0:
