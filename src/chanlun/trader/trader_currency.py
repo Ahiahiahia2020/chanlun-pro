@@ -18,9 +18,7 @@ class TraderCurrency(BackTestTrader):
     """
 
     def __init__(self, name, log=None):
-        super().__init__(
-            name=name, mode="real", is_stock=False, is_futures=True, log=log
-        )
+        super().__init__(name=name, mode="real", market="currency", log=log)
 
         self.ex = ExchangeBinance()
 
@@ -37,7 +35,9 @@ class TraderCurrency(BackTestTrader):
             positions = self.ex.positions()
             if len(positions) >= self.poss_max:
                 utils.send_fs_msg(
-                    "currency", "数字货币交易提醒", f"{code} open buy 下单失败，达到最大开仓数量"
+                    "currency",
+                    "数字货币交易提醒",
+                    f"{code} open buy 下单失败，达到最大开仓数量",
                 )
                 return False
             balance = self.ex.balance()
@@ -47,7 +47,9 @@ class TraderCurrency(BackTestTrader):
             print(code,amount,self.leverage)
             res = self.ex.order(code, "open_long", amount, {"leverage": self.leverage})
             if res is False:
-                utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} open buy 下单失败")
+                utils.send_fs_msg(
+                    "currency", "数字货币交易提醒", f"{code} open buy 下单失败"
+                )
                 return False
             msg = f"开多仓 {code} 价格 {res['price']} 数量 {open_usdt} 原因 {opt.msg}"
             utils.send_fs_msg("currency", "数字货币交易提醒", msg)
@@ -68,7 +70,9 @@ class TraderCurrency(BackTestTrader):
 
             return {"price": res["price"], "amount": res["amount"]}
         except Exception as e:
-            utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} open buy 异常: {str(e)}")
+            utils.send_fs_msg(
+                "currency", "数字货币交易提醒", f"{code} open buy 异常: {str(e)}"
+            )
             return False
 
     # 做空卖出
@@ -77,7 +81,9 @@ class TraderCurrency(BackTestTrader):
             positions = self.ex.positions()
             if len(positions) >= self.poss_max:
                 utils.send_fs_msg(
-                    "currency", "数字货币交易提醒", f"{code} open sell 下单失败，达到最大开仓数量"
+                    "currency",
+                    "数字货币交易提醒",
+                    f"{code} open sell 下单失败，达到最大开仓数量",
                 )
                 return False
             balance = self.ex.balance()
@@ -87,7 +93,9 @@ class TraderCurrency(BackTestTrader):
             amount = (open_usdt / ticks[code].last) * self.leverage
             res = self.ex.order(code, "open_short", amount, {"leverage": self.leverage})
             if res is False:
-                utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} open sell 下单失败")
+                utils.send_fs_msg(
+                    "currency", "数字货币交易提醒", f"{code} open sell 下单失败"
+                )
                 return False
             msg = f"开空仓 {code} 价格 {res['price']} 数量 {open_usdt} 原因 {opt.msg}"
             utils.send_fs_msg("currency", "数字货币交易提醒", msg)
@@ -107,7 +115,9 @@ class TraderCurrency(BackTestTrader):
 
             return {"price": res["price"], "amount": res["amount"]}
         except Exception as e:
-            utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} open sell 异常: {str(e)}")
+            utils.send_fs_msg(
+                "currency", "数字货币交易提醒", f"{code} open sell 异常: {str(e)}"
+            )
             return False
 
     # 做多平仓
@@ -148,7 +158,9 @@ class TraderCurrency(BackTestTrader):
 
             return {"price": res["price"], "amount": res["amount"]}
         except Exception as e:
-            utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} close buy 异常: {str(e)}")
+            utils.send_fs_msg(
+                "currency", "数字货币交易提醒", f"{code} close buy 异常: {str(e)}"
+            )
             return False
 
     # 做空平仓
@@ -189,7 +201,9 @@ class TraderCurrency(BackTestTrader):
 
             return {"price": res["price"], "amount": res["amount"]}
         except Exception as e:
-            utils.send_fs_msg("currency", "数字货币交易提醒", f"{code} close sell 异常: {str(e)}")
+            utils.send_fs_msg(
+                "currency", "数字货币交易提醒", f"{code} close sell 异常: {str(e)}"
+            )
             return False
         
 if __name__ == "__main__":

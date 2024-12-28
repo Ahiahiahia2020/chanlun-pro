@@ -212,8 +212,7 @@ class Trader(ABC):
         self,
         name,
         mode="signal",
-        is_stock=True,
-        is_futures=False,
+        market="a",
         init_balance=100000,
         fee_rate=0.0005,
         max_pos=10,
@@ -222,8 +221,7 @@ class Trader(ABC):
         # 策略基本信息
         self.name = name
         self.mode = mode
-        self.is_stock = is_stock
-        self.is_futures = is_futures
+        self.market = market
         self.max_pos = max_pos
 
     @abstractmethod
@@ -454,6 +452,24 @@ class Strategy(ABC):
         return {"k": k, "d": d, "j": j}
 
     @staticmethod
+    def idx_macd(cd: ICL, fast=12, slow=26, signal=9, end_datetime=None):
+        # 指标说明：
+        # MACD
+        close_prices = np.array(
+            [
+                k.c
+                for k in cd.get_klines()[-(slow + 500) :]
+                if end_datetime is None or k.date <= end_datetime
+            ]
+        )
+        macd_dif, macd_dea, macd_hist = talib.MACD(
+            close_prices, fastperiod=fast, slowperiod=slow, signalperiod=signal
+        )
+        macd_hist *= 2
+
+        return {"dif": macd_dif, "dea": macd_dea, "hist": macd_hist}
+
+    @staticmethod
     def idx_mtm(cd: ICL, N=12, M=6):
         # 参数：N 间隔天数，也是求移动平均的天数，一般为6
         # MTM向上突破零，买入信号
@@ -477,6 +493,28 @@ class Strategy(ABC):
         close_prices = np.array([k.c for k in cd.get_klines()[-(N + 120) :]])
         psy, psya = MyTT.PSY(close_prices, N, M)
         return {"psy": psy, "psya": psya}
+
+    @staticmethod
+    def idx_dmi(cd: ICL, M1=14, M2=6):
+        """
+        指示投资人避免在盘整的市场中交易，一旦市场变得有利润时，DMI立刻引导投资人进场，并且在适当时机退场。
+        买卖原则：
+            1、+DI上交叉-DI时，可参考做买。
+            2、+DI下交叉-DI时，可参考做卖。
+            3、ADX于50以上向下转折时，对表市场趋势终了。
+            4、当ADX滑落至+DI之下时，不宜进场交易。
+            5、当ADXR介于20-25时，宜采用TBP及CDP中之反应秘诀为交易参考。
+        """
+        close_prices = np.array([k.c for k in cd.get_klines()[-(500):]])
+        high_prices = np.array([k.h for k in cd.get_klines()[-(500):]])
+        low_prices = np.array([k.l for k in cd.get_klines()[-(500):]])
+        pdi, mdi, adx, adxr = MyTT.DMI(close_prices, high_prices, low_prices, M1, M2)
+        return {
+            "pdi": pdi,
+            "mdi": mdi,
+            "adx": adx,
+            "adxr": adxr,
+        }
 
     @staticmethod
     def idx_atr_by_sma(CLOSE, HIGH, LOW, N: int = 20):
@@ -657,7 +695,7 @@ class Strategy(ABC):
         return None
 
     @staticmethod
-    def last_bi(cd: ICL, _type: str = "up"):
+    def last_bi(cd: ICL, _type: str = "up") -> BI:
         """
         获取最后一个给定类型的笔
         """
