@@ -49,7 +49,7 @@ class HistoryXuangu(object):
         # 选股市场
         self.market = "a"
         # 选股日期范围
-        self.xg_start_date = "2019-09-01 15:00:00"
+        self.xg_start_date = "2002-09-01 15:00:00"
         self.xg_end_date = "2024-12-27 15:00:00"
         # 选股周期
         self.freqencys = ["d"]
@@ -110,7 +110,7 @@ class HistoryXuangu(object):
                     and line.low == line.end_line.low
                     and line.low > lines[-3].low 
                     and line.end.done
-                    and line.end.k.date > reference_date
+                    #and line.end.k.date > reference_date
 
                 ):
 
@@ -190,11 +190,11 @@ if __name__ == "__main__":
     print(f"{hxg.xg_start_date} ~ {hxg.xg_end_date}")
 
     # TODO 测试单个选股
-    # hxg.xuangu_by_code('SH.603826')
+    # hxg.xuangu_by_code('SH.600269')
 
     # TODO 多进程执行选股，根据自己 cpu 核数来调整
     with ProcessPoolExecutor(
-        max_workers=10, mp_context=get_context("spawn")
+        max_workers=20, mp_context=get_context("spawn")
     ) as executor:
         bar = tqdm(total=len(run_codes))
         for _ in executor.map(

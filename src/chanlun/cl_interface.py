@@ -1452,7 +1452,7 @@ def user_custom_mmd(
                     macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi_last = macds_bi[int(len(macds_bi)/2):]
-                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                    if len(macds_bi_last) and abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
                         # print("线段结束MACD柱子高度不创新高，形成一买")
                         line.add_mmd(
                             "1buy",
@@ -1479,7 +1479,7 @@ def user_custom_mmd(
                     macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi_last = macds_bi[int(len(macds_bi)/2):]
-                    if abs(max(macds_bi_last)) < abs(max(macds_xd)): #柱子高度不创新高
+                    if len(macds_bi_last) and abs(max(macds_bi_last)) < abs(max(macds_xd)): #柱子高度不创新高
                         # print("线段结束MACD柱子高度不创新高，形成一卖")
                         # print("{}周期{}段内笔行程背驰,形成一卖，线段结束时间：{}".format(cd.get_code(),cd.get_frequency(),line.end.k.date))
                         line.add_mmd(
@@ -1519,7 +1519,7 @@ def user_custom_mmd(
                     macds_xd = cd.get_idx()['macd']['hist'][line.start_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi = cd.get_idx()['macd']['hist'][line.end_line.start.k.k_index:line.end_line.end.k.k_index + 1]
                     macds_bi_last = macds_bi[int(len(macds_bi)/2):]
-                    if abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
+                    if len(macds_bi_last) and abs(min(macds_bi_last)) < abs(min(macds_xd)): #柱子高度不创新高
                         # print("走势段结束MACD柱子高度不创新高，形成一买")
                         # print("{}周期{}走势段内线段行程背驰,形成一买，走势段结束时间：{}".format(cd.get_code(),cd.get_frequency(),line.end.k.date))
                         line.add_mmd(

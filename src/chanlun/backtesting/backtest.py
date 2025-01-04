@@ -140,6 +140,13 @@ class BackTest:
         }
         # 保存策略结果到 file 中，进行页面查看
         self.log.info(f"save to : {self.save_file}")
+        # 获取文件夹路径
+        folder_path = os.path.dirname(self.save_file)
+        
+        # 如果文件夹不存在，则创建文件夹
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path, exist_ok=True)
+            
         with open(file=self.save_file, mode="wb") as file:
             pickle.dump(save_dict, file)
 
@@ -148,7 +155,11 @@ class BackTest:
         从指定的文件中恢复回测结果
         """
         with open(file=_file, mode="rb") as fp:
-            config_dict = pickle.load(fp)
+            try :
+                config_dict = pickle.load(fp)
+            except Exception as e:
+                print(_file,e)
+                raise e
         self.save_file = config_dict["save_file"]
         self.mode = config_dict["mode"]
         self.market = config_dict["market"]
@@ -312,7 +323,10 @@ class BackTest:
             # 回测结果合并
             for f in tqdm(results, desc="结果汇总"):
                 BT = BackTest()
-                BT.load(f)
+                try :
+                    BT.load(f)
+                except:
+                    print(f)
                 # 汇总结果
                 for mmd, res in BT.trader.results.items():
                     for _k, _v in res.items():

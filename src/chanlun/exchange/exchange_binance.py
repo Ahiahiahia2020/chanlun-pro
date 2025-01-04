@@ -362,14 +362,33 @@ class ExchangeBinance(Exchange):
         raise Exception("交易所不支持")
 
 
+import time
+
 if __name__ == "__main__":
     from chanlun import zixuan
 
     ex = ExchangeBinance()
 
-    klines = ex.klines("BTC/USDT", "1m", start_date="2024-11-26 12:30:00")
-    print(klines)
+    start_date_str = "2024-11-01 00:00:00"
+    start_date = datetime.datetime.strptime(start_date_str, "%Y-%m-%d %H:%M:%S")
+    last_date = start_date + datetime.timedelta(minutes=1000)
+    print(last_date)
+    last_date_str = last_date.strftime("%Y-%m-%d %H:%M:%S")
+    print(last_date_str)
+    print(datetime.datetime.now())
+    print(last_date < datetime.datetime.now())
+    while last_date < datetime.datetime.now():
+        print('start',str(last_date_str))
+        klines = ex.klines("BTC/USDT", "5m", start_date=str(last_date_str))
+        print(klines.head(1))
+        print(klines.tail(1))
+        last_date = last_date + datetime.timedelta(minutes=5000)
+        last_date_str = last_date.strftime("%Y-%m-%d %H:%M:%S")
+        time.sleep(1)
+        print('end',str(last_date_str))
 
+    # klines = ex.klines("BTC/USDT", "1m", start_date="2024-11-26 12:30:00")
+    # print(klines)
     # zx = zixuan.ZiXuan("currency")
     # zx_group = "选股"
     # run_codes = zx.zx_stocks("策略代码")
@@ -387,5 +406,5 @@ if __name__ == "__main__":
 
     # print("Error codes : ", error_codes)
 
-    balance = ex.balance()
-    print(balance)
+    # balance = ex.balance()
+    # print(balance)

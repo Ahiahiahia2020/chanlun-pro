@@ -199,20 +199,20 @@ if __name__ == "__main__":
     # from concurrent.futures import ThreadPoolExecutor
 
     # 多进程转换k线
-    # bar = tqdm(total=len(run_codes), desc="转换进度")
-    # with ProcessPoolExecutor(max_workers=10) as ex:
-    #     for r in ex.map(convert_code, run_codes):
-    #         bar.update(1)
+    bar = tqdm(total=len(run_codes), desc="转换进度")
+    with ProcessPoolExecutor(max_workers=10) as ex:
+        for r in ex.map(convert_code, run_codes):
+            bar.update(1)
 
-    # 慢慢来
-    for code in tqdm(run_codes):
-        convert_code(code)
+    # # 慢慢来
+    # for code in tqdm(run_codes):
+    #     convert_code(code)
 
     # 复权后的日线数据转换成周线数据，并进行保存
-    # for code in tqdm(run_codes):
-    #     db_code = to_tdx_codes([code])[0]
-    #     klines_d = db_ex.klines(db_code, "d", args={"limit": 9999999})
-    #     klines_w = convert_stock_kline_frequency(klines_d, "w")
-    #     db_ex.insert_klines(db_code, "w", klines_w)
+    for code in tqdm(run_codes):
+        db_code = to_tdx_codes([code])[0]
+        klines_d = db_ex.klines(db_code, "d", args={"limit": 9999999})
+        klines_w = convert_stock_kline_frequency(klines_d, "w")
+        db_ex.insert_klines(db_code, "w", klines_w)
 
     print("Done")
