@@ -17,6 +17,7 @@ import pyfolio as pf
 
 from chanlun import cl
 from chanlun import kcharts, fun
+from chanlun.backtesting import futures_contracts
 from chanlun.backtesting.backtest_klines import BackTestKlines
 from chanlun.backtesting.backtest_trader import BackTestTrader
 from chanlun.backtesting.base import POSITION, Strategy
@@ -41,6 +42,12 @@ class BackTest:
     def __init__(self, config: dict = None):
         # 日志记录
         self.log = fun.get_logger("my_backtest.log")
+        # 资源管理
+        self._resources = set()
+        # 性能监控
+        self._perf_stats = {}
+        # 内存管理阈值
+        self.memory_threshold = 0.8  # 80% 内存使用率阈值
 
         if config is None:
             return
@@ -71,6 +78,13 @@ class BackTest:
         self.end_datetime = config["end_datetime"]
 
         self.init_balance: int = config["init_balance"]
+
+        # 手续费的设置
+        """
+        # 沪深A股的手续费，在 backtest_trader.py cal_fee 方法中计算，有设置 过户费/印花税等 费率，这里只设置券商佣金，cal_fee 里计算的最少 5 元（不免5），如不满要求可自行修改
+        # 期货手续费率，这个不生效，在 futures_contracts.py 中，为每个期货品种单独配置（如果没有配置回测的品种，则会报错）
+        # 其他市场，默认手续费计算方式就是 成交额 * 手续费率
+        """
         self.fee_rate: float = config["fee_rate"]
         self.max_pos: int = config["max_pos"]
 
@@ -348,14 +362,29 @@ class BackTest:
                 self.trader.fee_total += BT.trader.fee_total
 
                 # 释放内存
+                BT.trader = None
+                BT.strategy = None
+                BT.datas = None
                 del BT
                 gc.collect()
 
-            # 整理并汇总资金变动历史
-            bh_df = pd.DataFrame(balance_history.values())
-            bh_df = bh_df.T.sort_index().fillna(method="ffill").fillna(0)
-            self.trader.balance_history = bh_df.sum(axis=1)
-            self.log.info("合并回测结果完成，可调用 save 方法进行保存")
+                # 整理并汇总资金变动历史
+            try:
+                bh_df = pd.DataFrame(balance_history.values())
+                bh_df = bh_df.T.sort_index().fillna(method="ffill").fillna(0)
+                self.trader.balance_history = bh_df.sum(axis=1)
+            except Exception as e:
+                self.log.error("合并资金历史记录异常")
+                self.log.error(traceback.format_exc())
+
+                self.log.info("合并回测结果完成，可调用 save 方法进行保存")
+            except Exception as e:
+                self.log.error("多进程回测执行异常")
+                self.log.error(traceback.format_exc())
+                raise e
+            finally:
+                 # 确保资源被释放
+                gc.collect()
         return True
 
     def run_params(self, new_cl_setting: dict):
@@ -478,16 +507,39 @@ class BackTest:
             end = time.perf_counter()
             cost: int = int((end - start))
             self.log.info(f"穷举算法优化完成，耗时{cost}秒")
+            try:
+                for r in results:
+                    try:
+                        BT = BackTest()
+                        BT.load(r["save_file"])
+                        print("* * " * 10)
+                        print(f'参数：{r["params"]}')
+                        print(f'落地文件：{r["save_file"]}')
+                        BT.result(True)
+                    except Exception as e:
+                        self.log.error(f"处理优化结果异常：{r['save_file']}")
+                        self.log.error(traceback.format_exc())
+                        continue
+                    finally:
+                         # 确保每次循环后释放资源
+                        if 'BT' in locals():
+                            BT.trader = None
+                            BT.strategy = None
+                            BT.datas = None
+                            del BT
+                            gc.collect()
+            except Exception as e:
+                    self.log.error("处理优化结果集异常")
+                    self.log.error(traceback.format_exc())
 
-            for r in results:
-                BT = BackTest()
-                BT.load(r["save_file"])
-                print("* * " * 10)
-                print(f'参数：{r["params"]}')
-                print(f'落地文件：{r["save_file"]}')
-                BT.result(True)
-
-        return results
+                    return results
+            except Exception as e:
+                self.log.error("参数优化执行异常")
+                self.log.error(traceback.format_exc())
+                raise e
+            finally:
+            # 确保资源被释放
+                gc.collect()
 
     def show_charts(
         self,
@@ -1086,44 +1138,84 @@ class BackTest:
             return chart.dump_options()
 
     def __get_close_profit(self, pos: POSITION, uids: List[str] = None):
+        # 记录开仓的占用保证金与手续费
+        hold_balance = 0
+        hold_amount = 0
+        pos_amount = 0
+        fee = 0
+        for _or in pos.open_records:
+            hold_balance += _or["hold_balance"]
+            hold_amount += _or["amount"]
+            pos_amount += _or["amount"]
+            fee += _or["fee"]
+
         if uids is None:
-            return {
-                "close_datetime": pos.close_datetime,
-                "profit": pos.profit,
-                "profit_rate": pos.profit_rate,
-                "max_profit_rate": pos.max_profit_rate,
-                "max_loss_rate": pos.max_loss_rate,
-                "close_msg": pos.close_msg,
-            }
+            uids = ["clear"]
 
-        pos_type = "buy" if "buy" in pos.mmd else "sell"
-
-        if isinstance(uids, dict) and pos.mmd in uids.keys():
-            query_uids = uids[pos.mmd]
-        elif isinstance(uids, dict) and pos_type in uids.keys():
-            query_uids = uids[pos_type]
-        else:
-            query_uids = uids
-
+        # 查询平仓 uids
+        query_uids = self.trader.get_opt_close_uids(pos.code, pos.mmd, uids)
         if "clear" not in query_uids:
             query_uids.append("clear")
+
         # 按照时间从早到晚排序
-        close_profit = sorted(
-            pos.close_uid_profit.items(), key=lambda _r: _r[1]["close_datetime"]
-        )
-        for _r in close_profit:
-            if _r[0] in query_uids:
-                return {
-                    "close_datetime": _r[1]["close_datetime"],
-                    "profit": _r[1]["profit"],
-                    "profit_rate": _r[1]["profit_rate"],
-                    "max_profit_rate": _r[1]["max_profit_rate"],
-                    "max_loss_rate": _r[1]["max_loss_rate"],
-                    "close_msg": _r[1]["close_msg"],
-                }
-        raise Exception(
-            f"{pos.code} - {pos.mmd} - {pos.open_datetime} 没有找到对应的平仓记录: {query_uids}"
-        )
+        close_records = sorted(pos.close_records, key=lambda _r: _r["datetime"])
+
+        # 记录平仓释放的保证金与手续费
+        release_balance = 0
+        close_price = 0
+        close_datetime = None
+        close_msg = ""
+        max_profit_rate = 0
+        max_loss_rate = 0
+        for _r in close_records:
+            if _r["close_uid"] in query_uids:
+                release_balance += _r["release_balance"]
+                fee += _r["fee"]
+                close_price = _r["price"]
+                pos_amount -= _r["amount"]
+                close_datetime = _r["datetime"]
+                close_msg = _r["close_msg"]
+                max_profit_rate = _r["max_profit_rate"]
+                max_loss_rate = _r["max_loss_rate"]
+                if pos_amount == 0:
+                    break
+
+        if release_balance == 0:
+            raise Exception(
+                f"{pos.code} - {pos.mmd} - {pos.open_datetime} 没有找到对应的平仓记录: {query_uids}"
+            )
+
+        # 计算盈亏比例
+        if pos.type == "做多":
+            profit = release_balance - hold_balance - fee
+            profit_rate = profit / hold_balance * 100
+            if self.market == "futures":
+                contract_config = futures_contracts.futures_contracts[pos.code]
+                profit = (release_balance - hold_balance) / contract_config[
+                    "margin_rate_long"
+                ] - pos.fee
+                profit_rate = profit / pos.balance * 100
+        else:
+            profit = hold_balance - release_balance - fee
+            profit_rate = profit / hold_balance * 100
+            if self.market == "futures":
+                contract_config = futures_contracts.futures_contracts[pos.code]
+                profit = (hold_balance - release_balance) / contract_config[
+                    "margin_rate_short"
+                ] - pos.fee
+                profit_rate = profit / pos.balance * 100
+
+        return {
+            "close_datetime": close_datetime,
+            "hold_amount": hold_amount,
+            "close_price": close_price,
+            "profit": profit,
+            "profit_rate": profit_rate,
+            "max_profit_rate": max_profit_rate,
+            "max_loss_rate": max_loss_rate,
+            "close_msg": close_msg,
+            "fee": fee,
+        }
 
     def positions(
         self,
@@ -1148,8 +1240,11 @@ class BackTest:
                     "close_datetime": p_profit["close_datetime"],
                     "type": p.type,
                     "price": p.price,
-                    "amount": p.amount,
+                    "close_price": p_profit["close_price"],
+                    "amount": p_profit["hold_amount"],
+                    "fee": p_profit["fee"],
                     "loss_price": p.loss_price,
+                    "profit": p_profit["profit"],
                     "profit_rate": p_profit["profit_rate"],
                     "max_profit_rate": p_profit["max_profit_rate"],
                     "max_loss_rate": p_profit["max_loss_rate"],

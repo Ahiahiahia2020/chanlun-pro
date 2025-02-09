@@ -30,9 +30,10 @@ REDIS_HOST = ''  # 127.0.0.1
 REDIS_PORT = 6379
 
 # 各个市场的交易所设置（只适用于WEB页面的行情展示）
-# A股市场支持：tdx / baostock / qmt
+# A股市场支持：tdx / baostock /qmt
 # 港股市场支持：tdx_hk / futu
 # 期货市场支持：tq / tdx_futures
+# 外汇市场支持 tdx_fx
 # 数字货币支持： binance / zb
 # 美股市场支持： alpaca / polygon / ib / tdx_us
 EXCHANGE_A = 'tdx'
@@ -40,6 +41,8 @@ EXCHANGE_HK = 'tdx_hk'
 EXCHANGE_FUTURES = 'tdx_futures'
 EXCHANGE_CURRENCY = 'binance'
 EXCHANGE_US = 'tdx_us'
+EXCHANGE_FX = 'tdx_fx'
+
 
 # 通达信目录（例如 C:/new_tdx），用于获取行业与概念信息，留空则使用 exchange/stocks_bkgn.json 进行获取
 TDX_PATH = ''
@@ -80,6 +83,12 @@ IB_HOST = '127.0.0.1'
 IB_PORT = 7497
 IB_CLIENT_ID = 1
 IB_ACCOUNT = 'DU6941075'
+
+# AI 分析配置
+# 使用硅基流动的API调用模型，并返回数据
+# 邀请链接：https://cloud.siliconflow.cn/i/HwLeeOjK   （注册送 14 元）
+AI_TOKEN = ""
+AI_MODEL = "deepseek-ai/DeepSeek-R1"
 
 # 飞书消息配置 (项目中新的消息推送使用飞书，user_id 是唯一的，不同的市场可以配置不同的机器人，没有设置则使用 default 的机器人)
 # 配置获取方法，在 web 页面的系统设置中有教程

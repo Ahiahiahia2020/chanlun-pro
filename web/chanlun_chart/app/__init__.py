@@ -42,6 +42,7 @@ from chanlun.cl_utils import (
 from chanlun.db import db
 from chanlun.exchange import get_exchange
 from chanlun.config import get_data_path
+from chanlun.tools.ai_analyse import AIAnalyse
 from chanlun.zixuan import ZiXuan
 from .alert_tasks import AlertTasks
 from .xuangu_tasks import XuanguTasks
@@ -125,6 +126,7 @@ def create_app(test_config=None):
     market_frequencys = {
         "a": list(get_exchange(Market.A).support_frequencys().keys()),
         "hk": list(get_exchange(Market.HK).support_frequencys().keys()),
+        "fx": list(get_exchange(Market.FX).support_frequencys().keys()),
         "us": list(get_exchange(Market.US).support_frequencys().keys()),
         "futures": list(get_exchange(Market.FUTURES).support_frequencys().keys()),
         "currency": list(get_exchange(Market.CURRENCY).support_frequencys().keys()),
@@ -137,6 +139,7 @@ def create_app(test_config=None):
     market_default_codes = {
         "a": get_exchange(Market.A).default_code(),
         "hk": get_exchange(Market.HK).default_code(),
+        "fx": get_exchange(Market.FX).default_code(),
         "us": get_exchange(Market.US).default_code(),
         "futures": get_exchange(Market.FUTURES).default_code(),
         "currency": get_exchange(Market.CURRENCY).default_code(),
@@ -147,6 +150,7 @@ def create_app(test_config=None):
     market_session = {
         "a": "24x7",
         "hk": "0930-1201,1330-1601",
+        "fx": "24x7",
         "us": "0400-0931,0930-1631,1600-2001",
         "futures": "24x7",
         "currency": "24x7",
@@ -157,6 +161,7 @@ def create_app(test_config=None):
     market_timezone = {
         "a": "Asia/Shanghai",
         "hk": "Asia/Shanghai",
+        "fx": "Asia/Shanghai",
         "us": "America/New_York",
         "futures": "Asia/Shanghai",
         "currency": "Asia/Shanghai",
@@ -166,6 +171,7 @@ def create_app(test_config=None):
     market_types = {
         "a": "stock",
         "hk": "stock",
+        "fx": "stock",
         "us": "stock",
         "futures": "futures",
         "currency": "crypto",
@@ -234,7 +240,11 @@ def create_app(test_config=None):
         首页
         """
 
-        return render_template("index.html", market_default_codes=market_default_codes)
+        return render_template(
+            "index.html",
+            market_default_codes=market_default_codes,
+            market_frequencys=market_frequencys,
+        )
 
     @app.route("/tv/config")
     @login_required
@@ -245,6 +255,7 @@ def create_app(test_config=None):
         frequencys = list(
             set(market_frequencys["a"])
             | set(market_frequencys["hk"])
+            | set(market_frequencys["fx"])
             | set(market_frequencys["us"])
             | set(market_frequencys["futures"])
             | set(market_frequencys["currency"])
@@ -261,6 +272,7 @@ def create_app(test_config=None):
             "exchanges": [
                 {"value": "a", "name": "沪深", "desc": "沪深A股"},
                 {"value": "hk", "name": "港股", "desc": "港股"},
+                {"value": "fx", "name": "外汇", "desc": "外汇"},
                 {"value": "us", "name": "美股", "desc": "美股"},
                 {"value": "futures", "name": "期货", "desc": "期货"},
                 {
@@ -328,7 +340,9 @@ def create_app(test_config=None):
             "type": market_types[market],
             "session": market_session[market],
             "timezone": market_timezone[market],
-            "pricescale": 1000 if market in ["a", "hk", "us", "futures"] else 100000000,
+            "pricescale": (
+                1000 if market in ["a", "hk", "fx", "us", "futures"] else 100000000
+            ),
             "visible_plots_set": "ohlcv",
             "supported_resolutions": [
                 v for k, v in frequency_maps.items() if k in market_frequencys[market]
@@ -1231,5 +1245,29 @@ def create_app(test_config=None):
         db.cache_set("fs_keys", fs_keys)
 
         return {"ok": True}
+
+    @app.route("/ai/analyse", methods=["POST"])
+    @login_required
+    def ai_analyse():
+
+        market = request.form["market"]
+        code = request.form["code"]
+        frequency = request.form["frequency"]
+
+        ai_analyse_obj = AIAnalyse(market)
+        ai_res = ai_analyse_obj.analyse(code, frequency)
+
+        return ai_res
+
+    @app.route("/ai/analyse_records/<market>", methods=["GET"])
+    @login_required
+    def ai_analyse_records(market: str = "a"):
+        ai_analyse_records = AIAnalyse(market=market).analyse_records(30)
+        return {
+            "code": 0,
+            "msg": "",
+            "count": len(ai_analyse_records),
+            "data": ai_analyse_records,
+        }
 
     return app
