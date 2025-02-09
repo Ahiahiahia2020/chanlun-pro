@@ -68,11 +68,19 @@ sync_frequencys = {
     },
 }
 
+# 默认第一次同步的起始时间，后续则进行增量更新
+sync_frequencys_zhishu = {
+    "1m": {
+        "start": fun.datetime_to_str(
+            datetime.datetime.now() - datetime.timedelta(days=500), "%Y-%m-%d"
+        )
+    },
+}
 
 print(sync_frequencys)
 # 本地周期与掘金周期对应关系
 fre_maps = {"d": "1d", "5m": "300s"}
-
+fre_maps_zhishu = {"1m": "60s"}
 
 def sync_code(code):
     for f, dt in sync_frequencys.items():
@@ -91,6 +99,52 @@ def sync_code(code):
             klines = history(
                 code,
                 fre_maps[f],
+                start_time=last_dt,
+                end_time=now_datetime,
+                adjust=ADJUST_NONE,
+                df=True,
+            )
+            if len(klines) == 0:
+                break
+            klines.loc[:, "code"] = klines["symbol"]
+            klines.loc[:, "date"] = pd.to_datetime(klines["eob"])
+            klines = klines[["code", "date", "open", "close", "high", "low", "volume"]]
+            # print(f'{code} query history use time: ', time.time() - s_time)
+
+            tqdm.write(
+                f'Run code {code} frequency {f} last_dt {last_dt} klines len {len(klines)} 【{klines.iloc[0]["date"]} - {klines.iloc[-1]["date"]}】'
+            )
+            # print(klines)
+
+            # s_time = time.time()
+            db_ex.insert_klines(code, f, klines)
+            # print(f'{code} insert klines use time: ', time.time() - s_time)
+        except Exception:
+            print("执行 %s - %s 同步K线异常" % (code, f))
+            print(traceback.format_exc())
+            time.sleep(10)
+            # utils.send_dd_msg('a', '执行 %s 同步K线异常' % code)
+
+    return True
+
+def sync_zhishu(code):
+    for f, dt in sync_frequencys_zhishu.items():
+        try:
+            # 全量更新
+            # db_ex.del_klines_by_code_freq(code, f) 
+            last_dt = db_ex.query_last_datetime(code, f)
+            if last_dt is None:
+                last_dt = dt["start"]
+            last_dt = fun.datetime_to_str(
+                fun.str_to_datetime(last_dt, "%Y-%m-%d") - datetime.timedelta(days=1),
+                "%Y-%m-%d",
+            )
+            # print(f'{code} query last datetime use time: ', time.time() - s_time)
+
+            now_datetime = datetime.datetime.now()
+            klines = history(
+                code,
+                fre_maps_zhishu[f],
                 start_time=last_dt,
                 end_time=now_datetime,
                 adjust=ADJUST_NONE,
@@ -189,30 +243,64 @@ def convert_code(code):
         print(f"Convert {code} error : {str(e)[0:200]}")
     return True
 
-
-if __name__ == "__main__":
-    for _code in tqdm(run_codes, desc="同步进度"):
-        sync_code(_code)
-
-    # 转换周期
-    # convert_code("SHSE.600519")
-    # from concurrent.futures import ThreadPoolExecutor
-
-    # 多进程转换k线
-    bar = tqdm(total=len(run_codes), desc="转换进度")
-    with ProcessPoolExecutor(max_workers=10) as ex:
-        for r in ex.map(convert_code, run_codes):
-            bar.update(1)
-
-    # # 慢慢来
-    # for code in tqdm(run_codes):
-    #     convert_code(code)
-
-    # 复权后的日线数据转换成周线数据，并进行保存
-    for code in tqdm(run_codes):
+def process_code(code):
+    """
+    处理单个股票代码，将日线数据转换为周线数据并保存
+    """
+    try:
         db_code = to_tdx_codes([code])[0]
         klines_d = db_ex.klines(db_code, "d", args={"limit": 9999999})
         klines_w = convert_stock_kline_frequency(klines_d, "w")
         db_ex.insert_klines(db_code, "w", klines_w)
+    except Exception as e:
+        print(f"处理代码 {code} 时出错: {e}")
 
-    print("Done")
+if __name__ == "__main__":
+    # for _code in tqdm(run_codes, desc="同步进度"):
+    #     sync_code(_code)
+
+    # # 转换周期
+    # # convert_code("SHSE.600519")
+
+    # # 多进程转换k线
+    # bar = tqdm(total=len(run_codes), desc="转换进度")
+    # with ProcessPoolExecutor(max_workers=22) as ex:
+    #     for r in ex.map(convert_code, run_codes):
+    #         bar.update(1)
+
+    # # # 慢慢来
+    # # for code in tqdm(run_codes):
+    # #     convert_code(code)
+
+    # # # 复权后的日线数据转换成周线数据，并进行保存
+    # # for code in tqdm(run_codes):
+    # #     db_code = to_tdx_codes([code])[0]
+    # #     klines_d = db_ex.klines(db_code, "d", args={"limit": 9999999})
+    # #     klines_w = convert_stock_kline_frequency(klines_d, "w")
+    # #     db_ex.insert_klines(db_code, "w", klines_w)
+
+    # # 多进程转换k线成周线
+    # print("开始转成成周线")
+    # bar = tqdm(total=len(run_codes), desc="转换进度")
+    # with ProcessPoolExecutor(max_workers=22) as ex:
+    #     for r in ex.map(process_code, run_codes):
+    #         bar.update(1)
+
+
+    # print("Done")
+
+    # zhishu = [
+    #     "SHSE.000001",  # 上证指数
+    #     "SHSE.000016",  # sz50
+    #     "SHSE.000300",  # hs300
+    #     "SZSE.399001",  # 深圳指数
+    #     "SHSE.000905",  # zz500
+    #     "SHSE.000852",  # 中证1000
+    #     "SZSE.399006",  # 创业板指
+    #     "SHSE.000688",  # kc50
+    # ]
+
+
+    # for _code in tqdm(zhishu, desc="同步进度"):
+    #     sync_zhishu(_code)
+    sync_zhishu("SHSE.000300")

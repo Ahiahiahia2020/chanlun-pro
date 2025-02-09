@@ -1,18 +1,22 @@
 from chanlun.backtesting import backtest
 from chanlun.backtesting.signal_to_trade import SignalToTrade
 from chanlun.config import get_data_path
-from chanlun.strategy.strategy_a_d_mmd_test import StrategyADMMDTest
+# from chanlun.strategy.strategy_a_d_mmd_test import StrategyADMMDTest
+from chanlun.strategy.my_strategy_dnbbc_202516 import StrategyDnbbc
 
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import get_context
 from tqdm.auto import tqdm
 import pathlib
+# save_path = 'D:/xuangu_log/a_strategy_Dnbbc_20250107/'
+# save_file = save_path + save_path.split('/')[-2] + '.pkl'
 
-bt_file = get_data_path() / "backtest" / "a" / "a_d_mmd_v0_signal.pkl"
-
+bt_file = "D:/xuangu_log/backtrade/a_strategy_Dnbbc_20250107_add_pos.pkl"
+save_bt_path = "D:/xuangu_log/backtrade/" + bt_file.split("/")[-2]
+# bt_file = get_data_path() / "backtest" / "a" / "a_d_mmd_v0_signal.pkl"
 # 实盘使用的平仓条件
 close_uid = [
-    "利润回调5%",
+    # "利润回调5%",
     "clear",
 ]
 
@@ -22,11 +26,7 @@ def run_bt(ags: tuple):
     _f_r = ags[1]
     _n = ags[2]
 
-    save_to_file = str(
-        get_data_path()
-        / "backtest"
-        / f"a_d_mmd_v0_signal_to_trade_profit_{_f_k}_{_f_r}_{_n}.pkl"
-    )
+    save_to_file = save_bt_path + f"_signal_to_trade_profit_{_f_k}_{_f_r}_{_n}.pkl"
     if pathlib.Path(save_to_file).is_file():
         return save_to_file
 
@@ -35,9 +35,14 @@ def run_bt(ags: tuple):
 
     s_to_t = SignalToTrade("trade", mode="trade", market="a")
     s_to_t.close_uids = close_uid
-    s_to_t.trade_strategy = StrategyADMMDTest(
+    s_to_t.trade_strategy = StrategyDnbbc(
         "test", filter_key=_f_k, filter_reverse=_f_r
     )
+    # pos_querys = [
+    #     " k_delda <= 3",
+    #     " xd4_xcld <= 0.2",
+    #     # " xd4_xcld <= 0.5"
+    # ]
     # s_to_t.trade_pos_querys = pos_querys
     s_to_t.trade_max_pos = _n
     s_to_t.log = None  # 不输出日志
@@ -52,11 +57,11 @@ def run_bt(ags: tuple):
 
 if __name__ == "__main__":
     filter_keys = [
-        "k_now_d_change",
+        # "k_now_d_change",
         "loss_rate",
     ]
     filter_reverst = [True, False]
-    max_pos = [2, 3, 4, 5, 6]
+    max_pos = [5, 10, 20, 30, 50, 75, 100]
 
     loop_args = []
     for _f_k in filter_keys:
@@ -69,7 +74,7 @@ if __name__ == "__main__":
     bt_files = []
 
     with ProcessPoolExecutor(
-        max_workers=4, mp_context=get_context("spawn")
+        max_workers=22, mp_context=get_context("spawn")
     ) as executor:
         bar = tqdm(total=len(loop_args), desc="回测进度")
         for _ in executor.map(run_bt, loop_args):

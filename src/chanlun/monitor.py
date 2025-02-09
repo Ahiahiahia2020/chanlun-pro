@@ -342,8 +342,8 @@ if __name__ == "__main__":
 
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config("a", "SH.000001")
-    klines = ex.klines("SH.000016", "d")
-    cd = cl.CL("SH.000016", "d", cl_config).process_klines(klines)
+    klines = ex.klines("SH.000001", "d")
+    cd = cl.CL("SH.000001", "d", cl_config).process_klines(klines)
 
     # image_key = kchart_to_png("a", "缠论数据", cd, cl_config)
     # image_key = kchart_to_png_mine("kechuang-30f", "缠论数据", cd, cl_config)

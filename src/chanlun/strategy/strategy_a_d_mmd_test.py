@@ -225,12 +225,6 @@ class StrategyADMMDTest(Strategy):
         price = cd_d.get_src_klines()[-1].c
         open_next_klines = [_k for _k in cd_d.get_src_klines() if _k.date > open_k_date]
 
-        # 判断当前是否是跌停价格，跌停直接返回，不操作
-        dt_price = self.code_dt_price(code, k_pre_d.c)
-        # 判断 price 是否在 dt_price+-0.01 之间
-        if dt_price - 0.01 <= price <= dt_price + 0.01:
-            pos.info["__dt_price"] = dt_price
-            return opts
 
         is_day_close = True
         if self.mode != "test":

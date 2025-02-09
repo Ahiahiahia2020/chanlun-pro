@@ -13,7 +13,11 @@ from multiprocessing import get_context
 import gc
 
 BT = backtest.BackTest()
-BT.save_file = str(get_data_path() / "backtest" / "a_d_mmd_v0_signal_no_strategy.pkl")
+save_file = "D:/xuangu_log/a_strategy_Dnbbc_20250107/a_strategy_Dnbbc_20250107.pkl"
+save_bt_path = "D:/xuangu_log/backtrade/" + save_file.split("/")[-2]
+BT.save_file = save_bt_path + '_no_strategy.pkl'
+print(BT.save_file)
+# BT.save_file = str(get_data_path() / "backtest" / "a_d_mmd_v0_signal_no_strategy.pkl")
 BT.load(BT.save_file)
 # BT.base_code = 'SH.600000'
 
@@ -85,7 +89,7 @@ if __name__ == "__main__":
     tqdm.write(f"计算组合数量：{len(close_groups)}")
 
     with ProcessPoolExecutor(
-        max_workers=5, mp_context=get_context("spawn")
+        max_workers=22, mp_context=get_context("spawn")
     ) as executor:
         bar = tqdm(total=len(close_groups), desc="计算进度")
         for _cus_profit in executor.map(get_close_uids_profit_rate, close_groups):

@@ -49,8 +49,10 @@ class BackTestTrader(Trader):
         self.can_short: bool = False  # 是否可以做空
 
         if self.market == "a":
-            self.can_close_today = False
-            self.can_short = False
+            # self.can_close_today = False
+            # self.can_short = False
+            self.can_close_today = True
+            self.can_short = True
         if self.market == "us":
             self.can_close_today = True
             self.can_short = False
@@ -382,7 +384,7 @@ class BackTestTrader(Trader):
                     Operation(
                         opt="sell",
                         mmd=pos.mmd,
-                        msg="退出",
+                        msg=f"退出；更多信息:{pos.info}",
                         code=pos.code,
                         close_uid="clear",
                     ),

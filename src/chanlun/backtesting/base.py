@@ -608,8 +608,8 @@ class Strategy(ABC):
                     code=pos.code,
                     opt="sell",
                     mmd=mmd,
-                    msg="%s 止损 （止损价格 %s 当前价格 %s）"
-                    % (mmd, pos.loss_price, price),
+                    msg="%s 止损 （止损价格 %s 当前价格 %s），更多信息：%s"
+                    % (mmd, pos.loss_price, price, pos.info),
                     close_uid="clear",
                 )
         elif "sell" in mmd:
