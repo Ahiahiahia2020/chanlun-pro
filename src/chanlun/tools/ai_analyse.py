@@ -302,13 +302,6 @@ class AIAnalyse:
                 "model": config.AI_MODEL,
             }
 
-<<<<<<< HEAD
-        if "choices" in ai_res.keys() and len(ai_res["choices"]) > 0:
-            msg = ai_res["choices"][0]["message"]["content"]
-        else:
-            msg = ai_res["message"]["content"]
-        return {"ok": True, "msg": msg}
-=======
         msg = ai_res["choices"][0]["message"]["content"]
         return {"ok": True, "msg": msg, "model": config.AI_MODEL}
 
@@ -357,19 +350,9 @@ class AIAnalyse:
                 "msg": f"**[系统异常]**: {str(e)}",
                 "model": config.OPENROUTER_AI_MODEL,
             }
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
 
 
 if __name__ == "__main__":
     ai = AIAnalyse("a")
-<<<<<<< HEAD
-    print(ai.analyse("SH.000300", "5m"))
-    print(ai.analyse_records())
-    # print(ai.analyse_multilevel("SH.601127",frequencys=["w","d","30m"]))
-    # print(ai.analyse_multilevel("SH.000300",frequencys=["30m","5m","1m"]))
-    # print(ai.analyse_records())
-    
-=======
     print(ai.analyse("SH.000001", "d"))
     # print(ai.analyse_records())
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
