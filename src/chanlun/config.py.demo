@@ -99,8 +99,6 @@ IB_PORT = 7497
 IB_CLIENT_ID = 1
 IB_ACCOUNT = 'DU6941075'
 
-<<<<<<< HEAD
-=======
 # AI 分析配置  （硅基流动和 Openrouteai 二选一，都配置优先使用 Openrouteai）
 # 使用硅基流动的API调用模型，并返回数据
 # 邀请链接：https://cloud.siliconflow.cn/i/HwLeeOjK   （注册送 14 元）
@@ -114,7 +112,6 @@ AI_MODEL = "Pro/deepseek-ai/DeepSeek-R1"
 OPENROUTER_AI_KEYS = ""
 OPENROUTER_AI_MODEL = "google/gemini-2.5-pro-preview"
 
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
 # 飞书消息配置 (项目中新的消息推送使用飞书，user_id 是唯一的，不同的市场可以配置不同的机器人，没有设置则使用 default 的机器人)
 # 配置获取方法，在 web 页面的系统设置中有教程
 FEISHU_KEYS = {
@@ -138,7 +135,6 @@ FEISHU_KEYS = {
         "app_id": "cli_a6ec4b7063bf500c",
         "app_secret": "krz04PobExVnjHrFZJFLUhkWZNEchrxZ",
     },
-<<<<<<< HEAD
     "30f3mceshi_xingying": {
         "app_id": "cli_a6e44a8d86f8d00e",
         "app_secret": "prOz2rewmdj6rcLulZ2cRcNVAuGobcGS",
@@ -164,13 +160,6 @@ FEISHU_KEYS = {
         "app_secret": "cRsNp9XzL6so1UIOhinoueoPeAtFnYl1",
     },
     "futures_xingying": {
-=======
-    "fx": {
-        "app_id": "cli_********",
-        "app_secret": "TlQXy9Y7********",
-    },
-    "futures": {
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
         "app_id": "cli_********",
         "app_secret": "TlQXy9Y7********",
     },
