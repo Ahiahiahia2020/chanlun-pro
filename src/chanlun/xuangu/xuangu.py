@@ -1,4 +1,8 @@
 import itertools
+from typing import List, Union
+
+import numpy as np
+import pandas as pd
 import talib
 from chanlun.cl_utils import *
 from chanlun.cl_interface import Config
@@ -63,7 +67,7 @@ def xg_multiple_xd_bi_mmd(code: str, mk_datas: MarketDatas, opt_type: list = [])
     if len(high_data.get_xds()) == 0 or len(high_data.get_bis()) == 0:
         return None
     high_xd = high_data.get_xds()[-1]
-    if high_xd.type not in opt_direction or low_bi.type not in opt_direction:
+    if high_xd.type not in opt_direction:
         return None
 
     # 再判断低级别的
@@ -71,6 +75,10 @@ def xg_multiple_xd_bi_mmd(code: str, mk_datas: MarketDatas, opt_type: list = [])
     if len(low_data.get_xds()) == 0 or len(low_data.get_bis()) == 0:
         return None
     low_bi = low_data.get_bis()[-1]
+    if low_bi.type not in opt_direction:
+        return None
+
+    # 判断是否买点或背驰
     if (high_xd.mmd_exists(opt_mmd, "|") or high_xd.bc_exists(["pz", "qs"], "|")) and (
         low_bi.mmd_exists(opt_mmd, "|") or low_bi.bc_exists(["pz", "qs"], "|")
     ):
@@ -133,7 +141,7 @@ def xg_single_xd_bi_23_overlapped(
     overlapped_23_bi_2 = (
         bi_2.mmd_exists(["2buy"])
         and bi_2.mmd_exists(["3buy"])
-        and bi_td(bi, cd) is True
+        and Strategy.bi_td(bi, cd) is True
     )
     overlapped_23_bi_3 = (
         bi_3.mmd_exists(["2buy"])
@@ -476,7 +484,7 @@ def xg_single_find_3buy_by_1buy(code: str, mk_datas: MarketDatas, opt_type: list
                 ):
                     return {
                         "code": cd.get_code(),
-                        "msg": f"出现三买，并且之前有出现一买",
+                        "msg": "出现三买，并且之前有出现一买",
                     }
     return None
 
@@ -1165,7 +1173,177 @@ def interact():
     import code
     code.InteractiveConsole(locals=globals()).interact()
     
+def xg_single_find_qs_by_zhuanzhe_zs(
+    code: str, mk_datas: MarketDatas, opt_type: list = []
+):
+    """
+    找趋势转折后的第一个中枢
+    周期：单周期
+    使用市场：沪深A股
+    作者：WX
+    """
+    opt_direction, opt_mmd = get_opt_types(opt_type)
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    if len(cd.get_bis()) <= 5 or len(cd.get_xds()) < 2 or len(cd.get_bi_zss()) < 3:
+        return None
+    zss = cd.get_bi_zss()
+    # 比较最后两个中枢的位置关系
+    zs_qs = cd.zss_is_qs(zss[-3], zss[-2])
+    if zs_qs not in opt_direction:
+        return None
+
+    if zss[-2].lines[0].index - zss[-3].lines[-1].index >= 3:
+        return None
+    # 最新的中枢
+    zs = zss[-1]
+    # 最新的中枢其实笔，要与中枢趋势不同
+    if zs.lines[0].type == zs_qs:
+        return None
+    # 当前中枢进行时
+    bi = cd.get_bis()[-1]
+    if zs.lines[-1].index != bi.index:
+        return None
+    # 两个中枢不能离得太远
+    if zs.lines[0].index - zss[-2].lines[-1].index >= 5:
+        return None
+    return {"code": cd.get_code(), "msg": "出现趋势转折的第一个中枢了"}
+
+
+def xg_single_xdzs_bimmdbc(code: str, mk_datas: MarketDatas, opt_type: list = []):
+    deviation_rate = 0.08
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    if len(cd.get_xd_zss()) == 0:
+        return None
+    xd_zs = cd.get_xd_zss()[-1]
+    xd = cd.get_xds()[-1]
+    # 线段的进入段要是向上的
+    if xd_zs.lines[0].type != "up":
+        return None
+    if xd_zs.lines[-1].type == "up":
+        return None
+    if xd_zs.lines[-1].index != xd.index:
+        return None
+    if xd_zs.line_num >= 9:
+        return None
+    # 进入线段的起始要是最低的
+    if xd_zs.lines[0].low != min([_l.low for _l in xd_zs.lines]):
+        return None
+    if "1sell" in xd_zs.zs_mmds() or "2sell" in xd_zs.zs_mmds():
+        return None
+
+    # 判断笔条件（获取最后一个下跌笔）
+    bi = cd.get_bis()[-1]
+    if bi.type != "down":
+        bi = cd.get_bis()[-2]
+    if len(bi.line_mmds()) == 0 and len(bi.line_bcs()) == 0:
+        return None
+
+    # 判断笔的结束价格，是否再 xd_zs.zd 的 deviation_rate 范围内
+    if xd_zs.zd * (1 - deviation_rate) <= bi.end.val <= xd_zs.zd * (1 + deviation_rate):
+        return {
+            "code": code,
+            "msg": "向上线段中枢，笔回调到线段zd附近，有买卖点背驰信号",
+        }
+
+
+def xg_single_week_k_overlap(code: str, mk_datas: MarketDatas, opt_type: list = []):
+    """
+    周线级别，k线重叠；理论与操作，在周线长时间盘整，积聚理论，一旦突破重叠区间，往往有可观的上涨区间
+    （注意：大级别可用，小级别不可用）
+    周期：单周期
+    适用市场：沪深A股
+    作者：WX
+    """
+    klines_week: pd.DataFrame = mk_datas.klines(code, mk_datas.frequencys[0])
+    if len(klines_week) < 100:
+        return None
+    # 判断最新三根K线是否有重叠
+    cross_low = klines_week.iloc[-3:]["low"].max()
+    cross_high = klines_week.iloc[-3:]["high"].min()
+    if cross_low > cross_high:
+        return None
+    cross_low = klines_week.iloc[-3:]["low"].min()
+    cross_high = klines_week.iloc[-3:]["high"].max()
+    overlap_nums = 0
+    for _i in range(1, len(klines_week) - 1):
+        _lh = max(klines_week.iloc[-_i]["low"], cross_low)
+        _hl = min(klines_week.iloc[-_i]["high"], cross_high)
+        # 最近三根也要有重叠
+        if _i > 3:
+            _three_overlap = (
+                klines_week.iloc[-_i : -(_i - 3)]["low"].max()
+                < klines_week.iloc[-_i : -(_i - 3)]["high"].min()
+            )
+        else:
+            _three_overlap = True
+        if _lh < _hl and _three_overlap:
+            overlap_nums += 1
+        else:
+            break
+
+    if overlap_nums < 13:
+        return None
+
+    # 重叠k线的平均成交量，要大于之前的平均成交量
+    overlap_avg_volume = klines_week.iloc[-overlap_nums:]["volume"].mean()
+    pre_avg_volume = klines_week.iloc[-(overlap_nums * 2) : -overlap_nums][
+        "volume"
+    ].mean()
+    if overlap_avg_volume < pre_avg_volume:
+        return None
+
+    return {
+        "code": code,
+        "msg": f"周线重叠，重叠数量：{overlap_nums}，有可观的上涨区间",
+    }
+
+
+def xg_single_xd_next_zz(
+    code: str, mk_datas: MarketDatas, opt_type: list = []
+) -> Union[None, dict]:
+    """
+    单周期，查找线段结束转折要转折的的标的
+    要求：
+    1. 线段内部必须有两个或以上的中枢
+    2. 当前的笔方向与线段方向要一致，并且（下跌笔的低点要高于线段的低点，上涨笔的高点要低于线段的高点）
+    3. 笔是线段结束笔的下一笔
+    """
+    opt_direction, opt_mmd = get_opt_types(opt_type)
+    cd = mk_datas.get_cl_data(code, mk_datas.frequencys[0])
+    if len(cd.get_xds()) == 0:
+        return None
+    xd = cd.get_xds()[-1]
+    bi = cd.get_bis()[-1]
+    if xd.type not in opt_direction:
+        return None
+    # 线段与笔的方向是否一致
+    if xd.type != bi.type:
+        return None
+    # 笔是不是线段结束笔的下下一笔
+    if bi.index != xd.end_line.index + 2:
+        return None
+    # 是否高于或低于线段结束的高低点
+    if bi.type == "down" and bi.low < xd.end_line.low:
+        return None
+    if bi.type == "up" and bi.high > xd.end_line.high:
+        return None
+    # 检查线段内的中枢数量
+    xd_zss = [
+        _zs
+        for _zs in cd.get_bi_zss()
+        if _zs.lines[1].start.k.date > xd.start.k.date
+        and _zs.lines[1].start.k.date > xd.end.k.date
+    ]
+    if len(xd_zss) < 2:
+        return None
+    return {
+        "code": code,
+        "msg": f"线段内有{len(xd_zss)}个中枢，笔是线段结束笔的下下一笔，笔方向与线段方向一致，且笔价格在线段价格附近",
+    }
+
+
 if __name__ == "__main__":
+    from chanlun.cl_utils import query_cl_chart_config
     from chanlun.exchange.exchange_tdx import ExchangeTDX
     from chanlun.cl_utils import query_cl_chart_config
     from chanlun.exchange.exchange import *
@@ -1184,6 +1362,7 @@ if __name__ == "__main__":
     # frequencys = ['2d', '60m']
     ex = ExchangeTDX()
     cl_config = query_cl_chart_config(market, code)
+    mkd = OnlineMarketDatas(market, freqs, ex, cl_config)
 
 
     """
@@ -1204,3 +1383,5 @@ if __name__ == "__main__":
     # interact()
 
 
+    res = xg_single_find_qs_by_zhuanzhe_zs(code, mkd)
+    print(res)

@@ -1,32 +1,28 @@
 import datetime
 import json
 import time
+import warnings
 from typing import List, Union
+
 import numpy as np
 import pandas as pd
-import warnings
-
 from sqlalchemy import (
-    UniqueConstraint,
-    create_engine,
     Column,
+    DateTime,
+    Float,
     Integer,
     String,
-    Float,
-    DateTime,
-    Date,
     Text,
+    UniqueConstraint,
+    create_engine,
     func,
 )
-import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
-from sqlalchemy.orm import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import declarative_base, sessionmaker
 from sqlalchemy.pool import QueuePool
 
+from chanlun import config, fun
 from chanlun.base import Market
-from chanlun import fun
-from chanlun import config
 from chanlun.config import get_data_path
 
 warnings.filterwarnings("ignore")
@@ -95,6 +91,8 @@ class TableByAlertTask(Base):
     check_xd_type = Column(String(20), comment="检查线段的类型")  # 检查线段的类型
     check_xd_beichi = Column(String(200), comment="检查线段的背驰")  # 检查线段的背驰
     check_xd_mmd = Column(String(200), comment="检查线段的买卖点")  # 检查线段的买卖点
+    check_idx_ma_info = Column(String(200), comment="检查指数的均线")
+    check_idx_macd_info = Column(String(200), comment="检查指数的MACD")
     is_run = Column(Integer, comment="是否运行")  # 是否运行
     is_send_msg = Column(Integer, comment="是否发送消息")  # 是否发送消息
     dt = Column(DateTime, comment="任务添加、修改时间")  # 任务添加、修改时间
@@ -113,7 +111,9 @@ class TableByAlertRecord(Base):
     frequency = Column(String(10), comment="提醒周期")  # 提醒周期
     line_type = Column(String(5), comment="提醒线段的类型")  # 提醒线段的类型
     alert_msg = Column(Text, comment="提醒消息")  # 提醒消息
-    bi_is_done = Column(String(10), comment="笔是否完成")  # 笔是否完成
+    bi_is_done = Column(
+        String(10), comment="笔是否完成,如果是指标，则记录上穿或下穿"
+    )  # 笔是否完成
     bi_is_td = Column(String(10), comment="笔是否停顿")  # 笔是否停顿
     line_dt = Column(DateTime, comment="提醒线段的开始时间")  # 提醒线段的开始时间
     alert_dt = Column(DateTime, comment="提醒时间")  # 提醒时间
@@ -122,7 +122,7 @@ class TableByAlertRecord(Base):
 
 
 class TableByTVMarks(Base):
-    # TV 图表的 mark 标记
+    # TV 图表的 mark 标记 (在时间轴上的标记)
     __tablename__ = "cl_tv_marks"
     id = Column(Integer, primary_key=True, autoincrement=True)
     market = Column(String(20), comment="市场")  # 市场
@@ -134,6 +134,26 @@ class TableByTVMarks(Base):
     mark_tooltip = Column(String(100), comment="提示")  # 提示
     mark_shape = Column(String(20), comment="形状")  # 形状
     mark_color = Column(String(20), comment="颜色")  # 颜色
+    dt = Column(DateTime, comment="添加时间")
+    # 添加配置设置编码
+    __table_args__ = {"mysql_collate": "utf8mb4_general_ci"}
+
+
+class TableByTVMarksPrice(Base):
+    # TV 图表的 mark 标记 (在价格主图的标记)
+    __tablename__ = "cl_tv_marks_price"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    market = Column(String(20), comment="市场")  # 市场
+    stock_code = Column(String(20), comment="标的代码")  # 标的代码
+    stock_name = Column(String(100), comment="标的名称")  # 标的名称
+    frequency = Column(String(10), default="", comment="展示周期")  # 展示周期
+    mark_time = Column(Integer, comment="标签时间戳")  # 标签时间戳
+    mark_color = Column(String(20), comment="颜色")  # 颜色
+    mark_text = Column(String(100), comment="提示")  # 提示
+    mark_label = Column(String(2), comment="标签")  # 标签
+    mark_label_font_color = Column(String(20), comment="标签字体颜色")  # 标签字体颜色
+    mark_min_size = Column(Integer, comment="最小尺寸")  # 最小尺寸
+
     dt = Column(DateTime, comment="添加时间")
     # 添加配置设置编码
     __table_args__ = {"mysql_collate": "utf8mb4_general_ci"}
@@ -210,6 +230,8 @@ class DB(object):
                 f"mysql+pymysql://{config.DB_USER}:{config.DB_PWD}@{config.DB_HOST}:{config.DB_PORT}/{config.DB_DATABASE}?charset=utf8mb4",
                 echo=False,
                 poolclass=QueuePool,
+                pool_recycle=3600,
+                pool_pre_ping=True,
                 pool_size=10,
                 max_overflow=20,
                 pool_timeout=10,
@@ -270,6 +292,10 @@ class DB(object):
             __table_args__ = {
                 "mysql_collate": "utf8mb4_general_ci",
             }
+
+        if market == Market.FUTURES.value:
+            # 期货市场，添加持仓列
+            TableByKlines.p = Column(Float, comment="持仓量")
 
         self.__cache_tables[table_name] = TableByKlines
         Base.metadata.create_all(self.engine)
@@ -357,13 +383,15 @@ class DB(object):
                     _in_k = {
                         "code": code,
                         "f": frequency,
-                        "dt": fun.str_to_datetime(fun.datetime_to_str(_k["date"])),
+                        "dt": _k["date"].replace(tzinfo=None),  # 去除时区信息
                         "o": _k["open"],
                         "c": _k["close"],
                         "h": _k["high"],
                         "l": _k["low"],
                         "v": _k["volume"],
                     }
+                    if "position" in _k.keys():
+                        _in_k["p"] = _k["position"]
                     db_k = (
                         session.query(table)
                         .filter(
@@ -389,23 +417,27 @@ class DB(object):
             groups = [
                 group.reset_index(drop=True) for _, group in klines.groupby(group)
             ]
+            in_position = "position" in klines.columns
             for g_klines in groups:
                 insert_klines = []
                 for _, _k in g_klines.iterrows():
-                    insert_klines.append(
-                        {
-                            "code": code,
-                            "dt": fun.str_to_datetime(fun.datetime_to_str(_k["date"])),
-                            "f": frequency,
-                            "o": _k["open"],
-                            "c": _k["close"],
-                            "h": _k["high"],
-                            "l": _k["low"],
-                            "v": _k["volume"],
-                        }
-                    )
+                    _insert_k = {
+                        "code": code,
+                        "dt": _k["date"].replace(tzinfo=None),  # 去除时区信息
+                        "f": frequency,
+                        "o": _k["open"],
+                        "c": _k["close"],
+                        "h": _k["high"],
+                        "l": _k["low"],
+                        "v": _k["volume"],
+                    }
+                    if in_position:
+                        _insert_k["p"] = _k["position"]
+                    insert_klines.append(_insert_k)
                 insert_stmt = insert(table).values(insert_klines)
                 update_keys = ["o", "c", "h", "l", "v"]
+                if in_position:
+                    update_keys.append("p")
                 update_columns = {
                     x.name: x for x in insert_stmt.inserted if x.name in update_keys
                 }
@@ -723,6 +755,8 @@ class DB(object):
         check_xd_type: str,
         check_xd_beichi: str,
         check_xd_mmd: str,
+        check_idx_ma_info: str,
+        check_idx_macd_info: str,
         is_run: int,
         is_send_msg: int,
     ):
@@ -741,6 +775,8 @@ class DB(object):
                     check_xd_type=check_xd_type,
                     check_xd_beichi=check_xd_beichi,
                     check_xd_mmd=check_xd_mmd,
+                    check_idx_ma_info=check_idx_ma_info,
+                    check_idx_macd_info=check_idx_macd_info,
                     is_run=is_run,
                     is_send_msg=is_send_msg,
                     dt=datetime.datetime.now(),
@@ -773,6 +809,7 @@ class DB(object):
 
     def task_update(
         self,
+        id: int,
         market: str,
         task_name: str,
         zx_group: str,
@@ -784,15 +821,18 @@ class DB(object):
         check_xd_type: str,
         check_xd_beichi: str,
         check_xd_mmd: str,
+        check_idx_ma_info: str,
+        check_idx_macd_info: str,
         is_run: int,
         is_send_msg: int,
     ):
         with self.Session() as session:
             session.query(TableByAlertTask).filter(
                 TableByAlertTask.market == market,
-                TableByAlertTask.task_name == task_name,
+                TableByAlertTask.id == id,
             ).update(
                 {
+                    TableByAlertTask.task_name: task_name,
                     TableByAlertTask.zx_group: zx_group,
                     TableByAlertTask.frequency: frequency,
                     TableByAlertTask.interval_minutes: interval_minutes,
@@ -802,6 +842,8 @@ class DB(object):
                     TableByAlertTask.check_xd_type: check_xd_type,
                     TableByAlertTask.check_xd_beichi: check_xd_beichi,
                     TableByAlertTask.check_xd_mmd: check_xd_mmd,
+                    TableByAlertTask.check_idx_ma_info: check_idx_ma_info,
+                    TableByAlertTask.check_idx_macd_info: check_idx_macd_info,
                     TableByAlertTask.is_run: is_run,
                     TableByAlertTask.is_send_msg: is_send_msg,
                     TableByAlertTask.dt: datetime.datetime.now(),
@@ -846,7 +888,7 @@ class DB(object):
                 bi_is_done=bi_is_done,
                 bi_is_td=bi_is_td,
                 line_type=line_type,
-                line_dt=fun.str_to_datetime(fun.datetime_to_str(line_dt)),
+                line_dt=line_dt.replace(tzinfo=None),
                 alert_dt=datetime.datetime.now(),
             )
             session.add(recored)
@@ -884,7 +926,9 @@ class DB(object):
                 .first()
             )
 
-    def alert_record_query(self, market: str) -> List[TableByAlertRecord]:
+    def alert_record_query(
+        self, market: str, task_name: str = None
+    ) -> List[TableByAlertRecord]:
         """
         查询预警记录
         :param market:
@@ -894,12 +938,11 @@ class DB(object):
         :return:
         """
         with self.Session() as session:
-            return (
-                session.query(TableByAlertRecord)
-                .filter(TableByAlertRecord.market == market)
-                .order_by(TableByAlertRecord.alert_dt.desc())
-                .limit(100)
-            )
+            query = session.query(TableByAlertRecord)
+            query = query.filter(TableByAlertRecord.market == market)
+            if task_name:
+                query = query.filter(TableByAlertRecord.task_name == task_name)
+            return query.order_by(TableByAlertRecord.alert_dt.desc()).limit(100)
 
     def marks_add(
         self,
@@ -978,6 +1021,92 @@ class DB(object):
             ).delete()
             session.commit()
 
+        return True
+
+    def marks_add_by_price(
+        self,
+        market: str,
+        stock_code: str,
+        stock_name: str,
+        frequency: str,
+        mark_time: int,
+        mark_label: str,
+        mark_text: str,
+        mark_label_color: str,
+        mark_color: str,
+    ):
+        """
+        添加代码在 tv 价格主图显示的信息
+        """
+        with self.Session() as session:
+            # 相同的 market,code/mark_time/mark_label 只能有一个，先删除一下
+            session.query(TableByTVMarks).filter(
+                TableByTVMarks.market == market,
+                TableByTVMarks.stock_code == stock_code,
+                TableByTVMarks.mark_time == mark_time,
+                TableByTVMarks.mark_label == mark_label,
+            ).delete()
+
+            mark = TableByTVMarksPrice(
+                market=market,
+                stock_code=stock_code,
+                stock_name=stock_name,
+                frequency=frequency,
+                mark_time=mark_time,
+                mark_color=mark_color,
+                mark_text=mark_text,
+                mark_label=mark_label,
+                mark_label_font_color=mark_label_color,
+                mark_min_size=1,
+                dt=datetime.datetime.now(),
+            )
+            session.add(mark)
+            session.commit()
+
+        return True
+
+    def marks_query_by_price(
+        self, market: str, stock_code: str, start_date: int = None
+    ) -> List[TableByTVMarksPrice]:
+        """
+        查询图表标记
+        :param market:
+        :param stock_code:
+        :return:
+        """
+        with self.Session() as session:
+            query = session.query(TableByTVMarksPrice).filter(
+                TableByTVMarksPrice.market == market,
+                TableByTVMarksPrice.stock_code == stock_code,
+            )
+            if start_date is not None:
+                query = query.filter(TableByTVMarksPrice.mark_time >= start_date)
+            return query.order_by(TableByTVMarksPrice.mark_time.asc()).all()
+
+    def marks_del_by_price(self, market: str, mark_label: str):
+        with self.Session() as session:
+            session.query(TableByTVMarksPrice).filter(
+                TableByTVMarks.market == market,
+                TableByTVMarksPrice.mark_label == mark_label,
+            ).delete()
+            session.commit()
+
+        return True
+
+    def marks_del_all_by_code(self, market: str, code: str):
+        """
+        删除代码的所有标记
+        """
+        with self.Session() as session:
+            session.query(TableByTVMarks).filter(
+                TableByTVMarks.market == market,
+                TableByTVMarks.stock_code == code,
+            ).delete()
+            session.query(TableByTVMarksPrice).filter(
+                TableByTVMarksPrice.market == market,
+                TableByTVMarksPrice.stock_code == code,
+            ).delete()
+            session.commit()
         return True
 
     def tv_chart_list(self, chart_type, client_id, user_id):
@@ -1125,8 +1254,8 @@ db: DB = DB()
 if __name__ == "__main__":
     db = DB()
 
-    db.klines_tables("a", "SH.111111")
-    print("Done")
+    # db.klines_tables("a", "SH.111111")
+    # print("Done")
 
     # # 增加自选股票
     # db.zx_add_group_stock("a", "我的持仓", "SH.000001", "上证指数", "", "red", location="top")
@@ -1240,6 +1369,19 @@ if __name__ == "__main__":
     #         m.mark_tooltip,
     #         m.mark_shape,
     #     )
+
+    # 添加图表标记
+    db.marks_add_by_price(
+        "a",
+        "SH.600378",
+        "昊华科技",
+        "30m",
+        fun.str_to_timeint("2025-07-03 14:00:00"),
+        "A",
+        "测试标记2",
+        "green",
+        "red",
+    )
 
     # 缓存
     # db.cache_set("test", "12312312312312", int(time.time()) + 5)

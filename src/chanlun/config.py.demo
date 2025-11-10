@@ -25,21 +25,30 @@ DB_USER = 'root'
 DB_PWD = '123456'
 DB_DATABASE = 'chanlun'
 
-# Redis 配置，不使用可将 REDIS_HOST 设置为空字符串
-REDIS_HOST = '127.0.0.1'  # 127.0.0.1
+# Redis 配置，不使用可将 REDIS_HOST 设置为空字符串（基本不用）
+REDIS_HOST = ''  # 127.0.0.1
 REDIS_PORT = 6379
 
 # 各个市场的交易所设置（只适用于WEB页面的行情展示）
-# A股市场支持：tdx / baostock
-# 港股市场支持：tdx_hk / futu
-# 期货市场支持：tq / tdx_futures
-# 数字货币支持： binance / zb
-# 美股市场支持： alpaca / polygon / ib / tdx_us
-EXCHANGE_A = 'tdx'
-EXCHANGE_HK = 'tdx_hk'
-EXCHANGE_FUTURES = 'tdx_futures'
-EXCHANGE_CURRENCY = 'binance'
-EXCHANGE_US = 'tdx_us'
+# db 表示读取数据库中的行情，适用于在国外或其他原因，tdx 无法正常使用的情况
+
+# A股市场支持：tdx / baostock /qmt / db
+# 港股市场支持：tdx_hk / futu / db
+# 期货市场支持：tq / tdx_futures / db
+# 纽约期货市场支持：tdx_ny_futures / db
+# 外汇市场支持 tdx_fx / db
+# 数字货币（合约）支持： binance / zb / db
+# 数字货币（现货）支持：binance_spot / db
+# 美股市场支持： alpaca / polygon / ib / tdx_us / db
+EXCHANGE_A = "tdx"  # 沪深A股市场
+EXCHANGE_HK = "tdx_hk"  # 港股市场
+EXCHANGE_FUTURES = "tdx_futures"  # 期货市场
+EXCHANGE_NY_FUTURES = "tdx_ny_futures"  # 纽约期货市场
+EXCHANGE_CURRENCY = "binance"  # 数字货币（合约）
+EXCHANGE_CURRENCY_SPOT = "binance_spot"  # 数字货币（现货）
+EXCHANGE_US = "tdx_us"  # 美股市场
+EXCHANGE_FX = "tdx_fx"  # 外汇市场
+
 
 # 通达信目录（例如 C:/new_tdx），用于获取行业与概念信息，留空则使用 exchange/stocks_bkgn.json 进行获取
 TDX_PATH = ''
@@ -59,6 +68,15 @@ TQ_PWD = ''
 TQ_SP_NAME = 'simnow'
 TQ_SP_ACCOUNT = ''
 TQ_SP_PWD = ''
+
+# CTP期货配置
+CTP_BROKER_ID = ""      # 期货公司 broker id
+CTP_USER_ID = ""        # 账号
+CTP_PASSWORD = ""       # 密码
+CTP_APP_ID = "client_chanlun-pro_1.0"         # AppID, 自研或开源量化软件通常以client开头
+CTP_AUTH_CODE = ""      # 交易所提供的授权码
+CTP_MD_FRONT = ""       # 行情服务器地址
+CTP_TD_FRONT = ""       # 交易服务器地址
 
 # 币安交易所配置
 BINANCE_APIKEY = 'f1RehVVfza20YhhhMmbx3TwAKhIb8gqsMuKftXuvnW8kYQJRPKrXgUv3iLfB3D51'
@@ -81,6 +99,22 @@ IB_PORT = 7497
 IB_CLIENT_ID = 1
 IB_ACCOUNT = 'DU6941075'
 
+<<<<<<< HEAD
+=======
+# AI 分析配置  （硅基流动和 Openrouteai 二选一，都配置优先使用 Openrouteai）
+# 使用硅基流动的API调用模型，并返回数据
+# 邀请链接：https://cloud.siliconflow.cn/i/HwLeeOjK   （注册送 14 元）
+AI_TOKEN = ""
+AI_MODEL = "Pro/deepseek-ai/DeepSeek-R1"
+# AI_MODEL = "Pro/deepseek-ai/DeepSeek-V3"
+
+# OpenRouterAI 的api key
+# API KEY 获取地址： https://openrouter.ai/settings/keys
+# 模型获取地址：https://openrouter.ai/models
+OPENROUTER_AI_KEYS = ""
+OPENROUTER_AI_MODEL = "google/gemini-2.5-pro-preview"
+
+>>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
 # 飞书消息配置 (项目中新的消息推送使用飞书，user_id 是唯一的，不同的市场可以配置不同的机器人，没有设置则使用 default 的机器人)
 # 配置获取方法，在 web 页面的系统设置中有教程
 FEISHU_KEYS = {
@@ -104,6 +138,7 @@ FEISHU_KEYS = {
         "app_id": "cli_a6ec4b7063bf500c",
         "app_secret": "krz04PobExVnjHrFZJFLUhkWZNEchrxZ",
     },
+<<<<<<< HEAD
     "30f3mceshi_xingying": {
         "app_id": "cli_a6e44a8d86f8d00e",
         "app_secret": "prOz2rewmdj6rcLulZ2cRcNVAuGobcGS",
@@ -129,6 +164,21 @@ FEISHU_KEYS = {
         "app_secret": "cRsNp9XzL6so1UIOhinoueoPeAtFnYl1",
     },
     "futures_xingying": {
+=======
+    "fx": {
+        "app_id": "cli_********",
+        "app_secret": "TlQXy9Y7********",
+    },
+    "futures": {
+>>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
+        "app_id": "cli_********",
+        "app_secret": "TlQXy9Y7********",
+    },
+    "ny_futures": {
+        "app_id": "cli_********",
+        "app_secret": "TlQXy9Y7********",
+    },
+    "currency_spot": {
         "app_id": "cli_********",
         "app_secret": "TlQXy9Y7********",
     },

@@ -1,9 +1,14 @@
-import time
+import math
+from typing import Dict, List, Tuple, Union
+
+import numpy as np
+import pandas as pd
+
 from chanlun import fun
-from chanlun.cl_interface import *
+from chanlun.cl_interface import BI, FX, ICL, LINE, MACD_INFOS, ZS, Config, Kline
+from chanlun.db import db
 from chanlun.exchange import exchange
 from chanlun.file_db import FileCacheDB
-from chanlun.db import db
 
 
 def web_batch_get_cl_datas(
@@ -299,7 +304,7 @@ def query_cl_chart_config(
         # 分型配置
         "fx_qy": Config.FX_QY_THREE.value,
         "fx_qj": Config.FX_QJ_K.value,
-        "fx_bh": Config.FX_BH_NO.value,
+        "fx_bh": Config.FX_BH_YES.value,
         # 笔配置
         "bi_type": Config.BI_TYPE_OLD.value,
         "bi_bzh": Config.BI_BZH_YES.value,
@@ -318,10 +323,11 @@ def query_cl_chart_config(
         "xd_allow_split_zs_more_line": "1",
         "xd_allow_split_zs_no_direction": "1",
         # 中枢配置
-        "zs_bi_type": [Config.ZS_TYPE_DN.value],
-        "zs_xd_type": [Config.ZS_TYPE_DN.value],
+        "zs_bi_type": [Config.ZS_TYPE_BZ.value],
+        "zs_xd_type": [Config.ZS_TYPE_BZ.value],
         "zs_qj": Config.ZS_QJ_DD.value,
-        "zs_wzgx": Config.ZS_WZGX_ZGGDD.value,
+        "zs_cd": Config.ZS_CD_THREE.value,
+        "zs_wzgx": Config.ZS_WZGX_GD.value,
         "zs_optimize": "0",
         # MACD 配置（计算力度背驰）
         "idx_macd_fast": 12,
@@ -630,7 +636,9 @@ def prices_jiaodu(prices):
     return j if prices[-1] > prices[0] else -j
 
 
-def cl_data_to_tv_chart(cd: ICL, config: dict, to_frequency: str = None):
+def cl_data_to_tv_chart(
+    cd: ICL, config: dict, to_frequency: str = None
+) -> Union[dict, None]:
     """
     将缠论数据，转换成 tv 画图的坐标数据
     """
@@ -647,6 +655,8 @@ def cl_data_to_tv_chart(cd: ICL, config: dict, to_frequency: str = None):
         for k in cd.get_klines()
     ]
     klines = pd.DataFrame(klines)
+    if len(klines) == 0:
+        return None
     klines.loc[:, "code"] = cd.get_code()
     if to_frequency is not None:
         # 将数据转换成指定的周期数据
@@ -660,6 +670,7 @@ def cl_data_to_tv_chart(cd: ICL, config: dict, to_frequency: str = None):
             klines = exchange.convert_currency_kline_frequency(klines, frequency)
         else:
             raise Exception(f"图表周期数据转换，不支持的市场 {market}")
+
     # K 线数据
     kline_ts = klines["date"].map(fun.datetime_to_int).tolist()
     kline_cs = klines["close"].tolist()
@@ -882,6 +893,16 @@ def cl_data_to_tv_chart(cd: ICL, config: dict, to_frequency: str = None):
                 }
             )
 
+    fx_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    bi_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    xd_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    zsd_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    bi_zs_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    xd_zs_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    zsd_zs_chart_data.sort(key=lambda v: v["points"][0]["time"], reverse=False)
+    bc_chart_data.sort(key=lambda v: v["points"]["time"], reverse=False)
+    mmd_chart_data.sort(key=lambda v: v["points"]["time"], reverse=False)
+
     return {
         "t": kline_ts,
         "c": kline_cs,
@@ -1023,4 +1044,5 @@ def klines_to_heikin_ashi_klines(ks: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    pass
+    cl_config = query_cl_chart_config("a", "SH.000001")
+    print(cl_config)
