@@ -10,6 +10,7 @@ from chanlun.cl_utils import query_cl_chart_config, web_batch_get_cl_datas
 from chanlun import config, fun
 import json, datetime
 from chanlun.db import db, TableByAIAnalyse
+from chanlun.utils import send_fs_msg_mine
 
 
 class AIAnalyse:
@@ -48,6 +49,7 @@ class AIAnalyse:
         cd = cds[0]
         try:
             prompt = self.prompt(cd=cd)
+            print("提示词为:",prompt)
         except Exception as e:
             return {"ok": False, "msg": f"获取缠论当前 Prompt 异常：{e}"}
 
@@ -68,8 +70,61 @@ class AIAnalyse:
                 )
                 session.add(record)
                 session.commit()
+            # 飞书消息
+            send_fs_msg_mine("ai分析","分析结论：", str(analyse_res["msg"]))
 
         return analyse_res
+
+    def analyse_multilevel(self, code: str, frequencys: list=['30m','5m','1m']) -> dict:
+        """
+        获取缠论数据，生成 prompt，调用接口进行分析，并返回数据
+        """
+
+        if not self.token:
+            return {"ok": False, "msg": "请先配置 AI_TOKEN"}
+        if not self.model:
+            return {"ok": False, "msg": "请先配置 AI_MODEL"}
+
+        cl_config = query_cl_chart_config(self.market, code)
+        stock = self.ex.stock_info(code)
+        prompts = "下面将展示3个级别的行情,请用缠论技术分析以下行情\n"
+        for frequency in frequencys:
+            print(frequency)
+            klines = self.ex.klines(code, frequency)
+            cds = web_batch_get_cl_datas(self.market, code, {frequency: klines}, cl_config)
+            cd = cds[0]
+            try:
+                prompt = self.prompt(cd=cd)
+                prompts += prompt
+                prompts = prompts.replace("使用缠论技术分析以下行情\n", "")
+                prompts = prompts.replace("请给出操作建议\n", "")
+
+            except Exception as e:
+                return {"ok": False, "msg": f"获取缠论当前 Prompt 异常：{e}"}
+        prompts += "请基于以上多级别数据联立，给出操作建议"
+        print("my prompts:",prompts)
+        analyse_res = self.req_ai_model(prompts)
+
+        if analyse_res["ok"]:
+            # 记录数据库
+            with db.Session() as session:
+                record = TableByAIAnalyse(
+                    market=self.market,
+                    stock_code=code,
+                    stock_name=stock["name"],
+                    frequency=frequency,
+                    model=self.model,
+                    msg=analyse_res["msg"],
+                    prompt=prompts,
+                    dt=datetime.datetime.now(),
+                )
+                session.add(record)
+                session.commit()
+            # 飞书消息
+            send_fs_msg_mine("ai分析","分析结论：", str(analyse_res["msg"]))
+
+        return analyse_res
+
 
     def analyse_records(self, limit: int = 20):
         """
@@ -137,7 +192,7 @@ class AIAnalyse:
         prompt += f"\t ADX: {[round(_i, precision) for _i in ADX[-5:]]}\n"
         prompt += f"\t ADXR: {[round(_i, precision) for _i in ADXR[-5:]]}\n"
 
-        prompt += "请给出操作建议"
+        prompt += "请给出操作建议\n"
         return prompt
 
     def req_ai_model(self, prompt: str) -> dict:
@@ -147,6 +202,7 @@ class AIAnalyse:
         # return {"ok": True, "msg": msg}
 
         url = "https://api.siliconflow.cn/v1/chat/completions"
+        # url = "http://rd.loveyy.fun:23456/api/chat/"
 
         payload = {
             "model": self.model,
@@ -157,7 +213,7 @@ class AIAnalyse:
                 }
             ],
             "stream": False,
-            "max_tokens": 4096,
+            "max_tokens": 8192,
             "stop": ["null"],
             "temperature": 0.7,
             "top_p": 0.7,
@@ -170,10 +226,16 @@ class AIAnalyse:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
         }
+        # 打印API请求信息
+        print(f"API URL: {url}")
+        print(f"Headers: {headers}")
+        print(f"Payload: {json.dumps(payload, indent=2)}")
 
         response = requests.request("POST", url, json=payload, headers=headers)
         try:
+            print(response)
             ai_res = json.loads(response.text)
+            print(ai_res)
         except Exception as e:
             print("解析JSON 报错，返回的数据：", response.text)
             return {"ok": False, "msg": f"JSON 解析异常：{e}"}
@@ -181,11 +243,18 @@ class AIAnalyse:
         if response.status_code != 200:
             return {"ok": False, "msg": f"AI 接口调用失败：{ai_res['message']}"}
 
-        msg = ai_res["choices"][0]["message"]["content"]
+        if "choices" in ai_res.keys() and len(ai_res["choices"]) > 0:
+            msg = ai_res["choices"][0]["message"]["content"]
+        else:
+            msg = ai_res["message"]["content"]
         return {"ok": True, "msg": msg}
 
 
 if __name__ == "__main__":
     ai = AIAnalyse("a")
-    print(ai.analyse("SH.000001", "d"))
+    print(ai.analyse("SH.000300", "5m"))
     print(ai.analyse_records())
+    # print(ai.analyse_multilevel("SH.601127",frequencys=["w","d","30m"]))
+    # print(ai.analyse_multilevel("SH.000300",frequencys=["30m","5m","1m"]))
+    # print(ai.analyse_records())
+    

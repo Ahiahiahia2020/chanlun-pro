@@ -205,7 +205,7 @@ class Trader(ABC):
         name,
         mode="signal",
         market="a",
-        init_balance=100000,
+        init_balance=10000000,
         fee_rate=0.0005,
         max_pos=10,
         log=None,
@@ -324,7 +324,154 @@ class Strategy(ABC):
             prices = np.array([k.c for k in cd.get_klines()[-(period + 120) :]])
         ma = talib.MA(prices, timeperiod=period)
         return ma
+    
+    @staticmethod
+    def idx_ma_volume(cd: ICL, period=5, is_all_prices=False):
+        """
+        返回 MA 指标
+        """
+        if is_all_prices:
+            vloumes = np.array([k.a for k in cd.get_klines()])
+        else:
+            vloumes = np.array([k.a for k in cd.get_klines()[-(period + 120) :]])
+        ma = talib.MA(vloumes, timeperiod=period)
+        return ma
+    
 
+    # 计算分时均线
+    @staticmethod
+    def calculate_time_avg(cd_klines):
+        # 创建 DataFrame
+        df = []
+        for _k in cd_klines:
+            df.append(
+                {
+                    "date": _k.date,
+                    "open": _k.o,
+                    "high": _k.h,
+                    "low": _k.l,
+                    "close": _k.c,
+                    "volume": _k.a,
+                }
+            )
+        if len(df) == 0:
+            df = pd.DataFrame(
+                [], columns=["date", "code", "high", "low", "open", "close", "volume"]
+            )
+        else:
+            df = pd.DataFrame(df)
+        # 确保 'date' 列是 datetime 类型
+        df['date'] = pd.to_datetime(df['date']) 
+        # # 设置 'date' 列为索引
+        # df.set_index('date', inplace=True)
+        # 提取日期部分并存储到 'datestr' 列
+        df['datestr'] = df['date'].dt.strftime('%Y-%m-%d')
+
+        # 提取时间部分并存储到 'time' 列
+        df['time'] = df['date'].dt.strftime('%H:%M:%S')
+
+        # 计算每日分时均价（累积平均）
+        for datestr in df['datestr'].unique():
+            # 计算累积成交量
+            df.loc[df['datestr'] == datestr, 'cumulative_volume'] = df[df['datestr'] == datestr]['volume'].cumsum()
+            
+            # 计算累积成交金额
+            df.loc[df['datestr'] == datestr, 'cumulative_amount'] = (df[df['datestr'] == datestr]['close'] * df[df['datestr'] == datestr]['volume']).cumsum()
+            
+            # 计算分时均价 (VWAP)
+            df.loc[df['datestr'] == datestr, 'vwap'] = df.loc[df['datestr'] == datestr, 'cumulative_amount'] / df.loc[df['datestr'] == datestr, 'cumulative_volume']
+        
+        return df
+    
+    @staticmethod
+    def get_frvp(cd_klines, use_close=False, bin_cnt=100, part=0.7):
+        # 创建 DataFrame
+        df = []
+        for _k in cd_klines:
+            df.append(
+                {
+                    "date": _k.date,
+                    "open": _k.o,
+                    "high": _k.h,
+                    "low": _k.l,
+                    "close": _k.c,
+                    "volume": _k.a,
+                }
+            )
+        if len(df) == 0:
+            df = pd.DataFrame(
+                [], columns=["date", "code", "high", "low", "open", "close", "volume"]
+            )
+        else:
+            df = pd.DataFrame(df)
+        # 确保 'date' 列是 datetime 类型
+        df['date'] = pd.to_datetime(df['date']) 
+        # 设置 'date' 列为索引
+        df.set_index('date', inplace=True)
+        df['open_close_avg'] = (df['open'] + df['close']) / 2
+        df['all_avg'] = (df['open'] + df['close'] + df['high'] + df['low']) / 4
+        if use_close:
+            df['average_price'] = df['close']
+        else:
+            # 加权计算average_price
+            weights = {'open': 0.2, 'close': 0.2, 'high': 0.1, 'low': 0.1, 'open_close_avg': 0.2, 'all_avg': 0.2}
+            df['average_price'] = (df['open'] * weights['open'] +
+                            df['close'] * weights['close'] +
+                            df['high'] * weights['high'] +
+                            df['low'] * weights['low'] +
+                            df['open_close_avg'] * weights['open_close_avg'] +
+                            df['all_avg'] * weights['all_avg'])
+
+        # 计算价格区间和成交量分布
+        min_price = df['average_price'].min()
+        max_price = df['average_price'].max()
+        interval = (max_price - min_price) / bin_cnt  # 确保 interval 是浮点数
+        bins = [min_price + i * interval for i in range(bin_cnt + 1)]
+        labels = [f'{bins[i]:.2f}-{bins[i+1]:.2f}' for i in range(len(bins) - 1)]
+        df['price_range'] = pd.cut(df['average_price'], bins=bins, labels=labels, right=False)
+        volume_by_price_range = df.groupby('price_range')['volume'].sum().reset_index()
+        
+        # 计算所有价格区间的总成交量
+        total_volume = volume_by_price_range['volume'].sum()
+        
+        # 找到成交量最高的价格区间及其对应的成交量
+        idx = volume_by_price_range['volume'].idxmax()
+        max_volume_range = volume_by_price_range.loc[idx]
+
+        # print(f"成交量最高的价格区间: {max_volume_range['price_range']}, 成交量占比: {round((max_volume_range['volume']/total_volume) * 100,0)}%")
+
+        # 计算所有价格区间的总成交量
+        total_volume = volume_by_price_range['volume'].sum()
+        # print(total_volume)
+        volume_sum = max_volume_range['volume']
+        pre_idx = idx 
+        next_idx = idx
+        pre_volume_range = max_volume_range['price_range']
+        next_volume_range = max_volume_range['price_range']
+        previous_element = volume_by_price_range.iloc[pre_idx]
+        next_element = volume_by_price_range.iloc[next_idx] 
+        while volume_sum < part * total_volume:
+            if pre_idx > 0:
+                previous_element = volume_by_price_range.iloc[pre_idx - 1]
+            if next_idx < len(volume_by_price_range) - 1:
+                next_element = volume_by_price_range.iloc[next_idx + 1] 
+                
+            if previous_element['volume'] >= next_element['volume']:
+                pre_idx -= 1
+                pre_volume_range = previous_element['price_range']
+                volume_sum += previous_element['volume']
+            else:
+                next_idx += 1
+                next_volume_range = next_element['price_range']
+                volume_sum += next_element['volume']
+        # print(f"成交量占比{int(part*100)}的价格区间为{pre_volume_range.split('-')[0]}-{next_volume_range.split('-')[1]}")
+
+        return round(
+                        (float(max_volume_range['price_range'].split('-')[0]) 
+                            + float(max_volume_range['price_range'].split('-')[1])
+                        ) / 2, 0
+                    ), float(pre_volume_range.split('-')[0]), float(next_volume_range.split('-')[1])
+    
     @staticmethod
     def idx_ema(cd: ICL, period=5, is_all_prices=False):
         """
@@ -550,6 +697,107 @@ class Strategy(ABC):
             return low_stop_loss_price
         else:
             return high_stop_loss_price
+    
+    def idx_adx(self, cd, period=14):
+        """
+        计算ADX指标识别趋势强度
+        :param high: 高价数组 (numpy array)
+        :param low: 低价数组 (numpy array)
+        :param close: 收盘价数组 (numpy array)
+        :param period: 计算周期
+        :return: 包含ADX指标的numpy数组
+        """
+        close = np.array([k.c for k in cd.get_klines()[-(period + 200) :]])
+        high = np.array([k.h for k in cd.get_klines()[-(period + 200) :]])
+        low = np.array([k.l for k in cd.get_klines()[-(period + 200) :]])
+        # 计算TR
+        tr = np.maximum(np.maximum(high - low, np.abs(high - np.roll(close, 1))), np.abs(low - np.roll(close, 1)))
+        tr[0] = 0  # 第一个元素没有前一天的数据
+
+        # 计算DMplus和DMminus
+        dmplus = np.where((high - np.roll(high, 1)) > (np.roll(low, 1) - low), high - np.roll(high, 1), 0)
+        dmminus = np.where((np.roll(low, 1) - low) > (high - np.roll(high, 1)), np.roll(low, 1) - low, 0)
+        dmplus[0] = 0  # 第一个元素没有前一天的数据
+        dmminus[0] = 0  # 第一个元素没有前一天的数据
+
+        # 计算TR、DMplus和DMminus的移动平均
+        tr_sma = np.convolve(tr, np.ones(period) / period, mode='valid')
+        dmplus_sma = np.convolve(dmplus, np.ones(period) / period, mode='valid')
+        dmminus_sma = np.convolve(dmminus, np.ones(period) / period, mode='valid')
+
+        # 计算DIplus和DIminus
+        diplus = (dmplus_sma / tr_sma) * 100
+        diminus = (dmminus_sma / tr_sma) * 100
+
+        # 计算DX
+        dx = (np.abs(diplus - diminus) / (diplus + diminus)) * 100
+        # 计算ADX
+        adx = np.convolve(dx, np.ones(period) / period, mode='valid')
+        # 填充ADX前面的NaN值
+        adx = np.pad(adx, (period - 1, 0), mode='constant', constant_values=np.nan)
+        return adx
+    def get_chandelier_exit_signal(
+        self, cd: ICL, atr_period: int = 22, atr_m: float = 3
+    ):
+        # atr_period = 22
+        # atr_m = 3
+        close_prices = np.array([k.c for k in cd.get_klines()[-(atr_period + 200) :]])
+        high_prices = np.array([k.h for k in cd.get_klines()[-(atr_period + 200) :]])
+        low_prices = np.array([k.l for k in cd.get_klines()[-(atr_period + 200) :]])
+        atr_vals = self.idx_atr_by_sma(
+            close_prices, high_prices, low_prices, atr_period
+        )
+        high_high = np.max(high_prices[-atr_period:])
+        low_low = np.min(low_prices[-atr_period:])
+
+        long_stop = high_high - atr_vals * atr_m
+        # prev_long = long_stop.shift(1) if not long_stop.shift(1).isna() else long_stop
+        long_stop_prev = np.roll(long_stop, 1)
+        long_stop_prev[0] = long_stop[0]  # 第一个元素没有前一天的收盘价
+        for i in range(0, len(close_prices)):
+            if close_prices[i] > long_stop_prev[i]:
+                long_stop[i] = max(long_stop[i], long_stop_prev[i])
+
+
+        short_stop = low_low + atr_vals * atr_m
+        short_stop_prev = np.roll(short_stop, 1)
+        short_stop_prev[0] = short_stop[0]  # 第一个元素没有前一天的收盘价
+
+        for i in range(0, len(close_prices)):
+            if close_prices[i] < short_stop_prev[i]:
+                short_stop[i] = min(short_stop[i], short_stop_prev[i])
+
+        dir = np.array([0 for i in range(atr_period + 200)])
+        for i in range(0, len(close_prices)):
+            if close_prices[i] > short_stop_prev[i]:
+                dir[i] = 1
+            elif close_prices[i] < long_stop_prev[i]:
+                dir[i] = -1
+
+        signal = np.array([0 for i in range(atr_period + 200)])
+        for i in range(0, len(close_prices)):
+            if (dir[i] == 1 and dir[i - 1] == -1 
+                ):
+                signal[i] = 1
+            elif  (
+                    dir[i] == -1 
+                    and dir[i - 1] == 1 
+                ):
+                signal[i] = -1
+        # signal = 0
+        # if(
+        #     dir[-1] == 1 
+        #     and dir[-2] == -1 
+        #     and close_prices[-1] > ema[-1]
+        # ):
+        #     signal = 1
+        # elif(
+        #     dir[-1] == -1 
+        #     and dir[-2] == 1 
+        #     and close_prices[-1] < ema[-1]
+        # ):
+        #     signal = -1
+        return signal
 
     def check_atr_stop_loss(
         self, cd: ICL, pos: POSITION, atr_period: int = 14, atr_m: float = 1.5
@@ -600,8 +848,8 @@ class Strategy(ABC):
                     code=pos.code,
                     opt="sell",
                     mmd=mmd,
-                    msg="%s 止损 （止损价格 %s 当前价格 %s），更多信息：%s"
-                    % (mmd, pos.loss_price, price, pos.info),
+                    msg="%s 止损 （止损价格 %s 当前价格 %s"
+                    % (mmd, pos.loss_price, price),
                     close_uid="clear",
                 )
         elif "sell" in mmd:
@@ -667,7 +915,7 @@ class Strategy(ABC):
         @param open_price: 开仓价格
         @param loss_price: 止损价格
         """
-        balance = 100000  # 信号模式下，回测每次开仓的金额
+        balance = 1000000  # 信号模式下，回测每次开仓的金额
         open_balance = (
             (max_loss_rate / 100 * balance) / abs(open_price - loss_price) * open_price
         )
@@ -996,20 +1244,20 @@ class Strategy(ABC):
 
     @staticmethod
     def judge_macd_back_zero(cd: ICL, zs: ZS) -> int:
-        """
-        判断中枢的 macd 是否有回拉零轴
+            """
+            判断中枢的 macd 是否有回拉零轴
 
-        @param cd:缠论数据对象
-        @param zs: 中枢
-        @return: 返回回拉零轴的最大次数
-        """
-        zs_macd_info = cal_zs_macd_infos(zs, cd)
-        # 根据进入中枢第一笔，判断中枢方向，向下笔是向上中枢，看回调零轴次数；向上笔是向下中枢，看回拉零轴次数
-        if zs.lines[0].type == "down":
-            return max(zs_macd_info.dea_down_cross_num, zs_macd_info.dif_down_cross_num)
-        if zs.lines[0].type == "up":
-            return max(zs_macd_info.dea_up_cross_num, zs_macd_info.dif_up_cross_num)
-        return 0
+            @param cd:缠论数据对象
+            @param zs: 中枢
+            @return: 返回回拉零轴的最大次数
+            """
+            zs_macd_info = cal_zs_macd_infos(zs, cd)
+            # 根据进入中枢第一笔，判断中枢方向，向下笔是向上中枢，看回调零轴次数；向上笔是向下中枢，看回拉零轴次数
+            if zs.lines[0].type == "down":
+                return max(zs_macd_info.dea_down_cross_num, zs_macd_info.dif_down_cross_num)
+            if zs.lines[0].type == "up":
+                return max(zs_macd_info.dea_up_cross_num, zs_macd_info.dif_up_cross_num)
+            return 0
 
 
 def fee_a(opt: str, price: float, amount: float):

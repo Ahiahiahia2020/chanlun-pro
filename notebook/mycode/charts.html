@@ -1,0 +1,166 @@
+<!-- file: c:\chanlun20141115\chanlun-pro\notebook\mycode\charts.html -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>多周期K线与成交量分布</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.0/dist/echarts.min.js"></script>
+  <style>
+    .chart-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      padding: 20px;
+    }
+    .chart {
+      width: 48%;
+      height: 400px;
+    }
+  </style>
+</head>
+<body>
+  <h1>选择日期范围</h1>
+  <label for="end-date">结束日期:</label>
+  <input type="datetime-local" id="end-date" />
+  <button onclick="updateCharts()">更新图表</button>
+
+  <div class="chart-container">
+    <div class="chart" id="chart-30m"></div>
+    <div class="chart" id="chart-15m"></div>
+    <div class="chart" id="chart-5m"></div>
+  </div>
+
+  <script>
+    function updateCharts() {
+      const endDate = document.getElementById("end-date").value;
+      const frequencies = ["30m", "15m", "5m"];
+
+      frequencies.forEach(freq => {
+        fetch(`/api/get_chart_data?end_date=${endDate}&frequency=${freq}`)
+          .then(response => response.json())
+          .then(data => {
+            renderKLineChart(`chart-${freq}`, data.kline_data[freq]);
+            renderVolumeChart(`volume-${freq}`, data.volume_data[freq]);
+          });
+      });
+    }
+
+    function renderKLineChart(containerId, chartData) {
+      const chart = echarts.init(document.getElementById(containerId));
+
+      const option = {
+        title: {
+          text: `K线图 (${containerId.replace('chart-', '')})`
+        },
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: {
+            type: 'shadow'
+          },
+          formatter: (params) => {
+            return `${params[0].name}<br>` +
+                   `O: ${params[1].value[1]} ` +
+                   `C: ${params[1].value[2]}<br>` +
+                   `H: ${params[1].value[3]} ` +
+                   `L: ${params[1].value[4]}`
+          }
+        },
+        grid: {
+          bottom: 80
+        },
+        xAxis: {
+          type: 'category',
+          data: chartData.dates,
+          axisLabel: { show: false },
+          axisTick: { show: false },
+          axisLine: { show: false }
+        },
+        yAxis: {
+          scale: true,
+          splitLine: { show: false }
+        },
+        dataZoom: [{
+          type: 'inside',
+          start: 95,
+          end: 100
+        }, {
+          show: true,
+          type: 'slider',
+          y: 30,
+          height: 20,
+          start: 95,
+          end: 100
+        }],
+        series: [{
+          name: 'K线',
+          type: 'candlestick',
+          data: chartData.values.map((val, i) => [
+            chartData.dates[i],
+            val[0], val[3], val[2], val[1]
+          ]),
+          itemStyle: {
+            color: '#ec0000',
+            color0: '#26a69a',
+            borderColor: null,
+            borderColor0: null
+          }
+        }]
+      };
+
+      chart.setOption(option);
+    }
+
+    function renderVolumeChart(containerId, chartData) {
+      const chart = echarts.init(document.getElementById(containerId));
+
+      const option = {
+        title: {
+          text: `成交量分布 (${containerId.replace('volume-', '')})`
+        },
+        tooltip: {
+          trigger: 'axis',
+          formatter: (params) => {
+            return `${params[0].name}<br>成交量: ${params[0].value[1]}`
+          }
+        },
+        grid: {
+          bottom: 80
+        },
+        xAxis: {
+          type: 'category',
+          boundaryGap: false,
+          data: chartData.dates,
+          axisLabel: { show: false },
+          axisTick: { show: false }
+        },
+        yAxis: {
+          type: 'value',
+          splitLine: { show: false }
+        },
+        dataZoom: [{
+          type: 'inside',
+          start: 95,
+          end: 100
+        }, {
+          show: true,
+          type: 'slider',
+          y: 30,
+          height: 20,
+          start: 95,
+          end: 100
+        }],
+        series: [{
+          name: '成交量',
+          type: 'bar',
+          data: chartData.volume,
+          itemStyle: {
+            color: '#26a69a'
+          }
+        }]
+      };
+
+      chart.setOption(option);
+    }
+  </script>
+</body>
+</html>

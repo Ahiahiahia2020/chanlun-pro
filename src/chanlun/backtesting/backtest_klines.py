@@ -368,6 +368,8 @@ class BackTestKlines(MarketDatas):
                 "15m": 350,
                 "5m": 600,
                 "1m": 100,
+                "15s": 100,
+                "5s": 100,
             },
             "hk": {
                 "d": 5000,
@@ -436,6 +438,8 @@ class BackTestKlines(MarketDatas):
             "5m",
             "3m",
             "1m",
+            "5s",
+            "15s"
         ]:
             if _freq == frequency:
                 return (

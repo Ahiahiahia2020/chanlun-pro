@@ -26,7 +26,7 @@ class BackTestTrader(Trader):
         name,
         mode="signal",
         market="a",
-        init_balance=100000,
+        init_balance=1000000,
         fee_rate=0.0005,
         max_pos=10,
         log=None,
@@ -558,7 +558,7 @@ class BackTestTrader(Trader):
     def open_buy(self, code, opt: Operation, amount: float = None):
         if self.mode == "signal":
             # 信号模式，固定交易金额
-            use_balance = 100000 * min(1.0, opt.pos_rate)
+            use_balance = 1000000 * min(1.0, opt.pos_rate)
             price = self.get_price(code)["close"]
             amount = round((use_balance / price) * 0.99, 4)
             if self.market == "a":
@@ -606,7 +606,7 @@ class BackTestTrader(Trader):
     # 做空卖出
     def open_sell(self, code, opt: Operation, amount: float = None):
         if self.mode == "signal":
-            use_balance = 100000 * min(1.0, opt.pos_rate)
+            use_balance = 1000000 * min(1.0, opt.pos_rate)
             price = self.get_price(code)["close"]
             amount = round((use_balance / price) * 0.99, 4)
             if self.market == "a":

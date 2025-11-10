@@ -375,7 +375,7 @@ def query_cl_chart_config(
         "chart_show_atr_stop_loss": False,
         "chart_show_ld": "xd",
         "chart_kline_nums": 500,
-        "chart_idx_ma_period": "5,34",
+        "chart_idx_ma_period": "90,200",
         "chart_idx_vol_ma_period": "5,60",
         "chart_idx_boll_period": 20,
         "chart_idx_rsi_period": 14,

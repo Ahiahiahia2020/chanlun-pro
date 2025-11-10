@@ -48,6 +48,27 @@ for _c in [
 ]:
     run_codes.append(_c.replace("SZ.", "SZSE.").replace("SH.", "SHSE."))
 
+# # 指数1分钟数据
+zhishu = [
+    "SHSE.000001",  # 上证指数
+    "SHSE.000016",  # 上证50
+    "SHSE.000300",  # 沪深300
+    "SZSE.399001",  # 深圳指数
+    "SHSE.000905",  # 中证500
+    "SHSE.000852",  # 中证1000
+    "SZSE.399006",  # 创业板指
+    "SHSE.000688",  # 科创50
+    "SHSE.000044",  # 上证中盘
+    "SZSE.399330", # 深圳100
+    "SZSE.399935", #800信息
+    "SHSE.000070", #能源等权
+    "SZSE.399673", #创业板50
+    "SZSE.399975", #证券公司
+    "SHSE.000025", #180基建
+    "SHSE.000914", #300金融
+
+]
+
 # run_codes = ["SHSE.603959"]
 print("Sync Len : ", len(run_codes))
 
@@ -256,17 +277,27 @@ def process_code(code):
         print(f"处理代码 {code} 时出错: {e}")
 
 if __name__ == "__main__":
-    # for _code in tqdm(run_codes, desc="同步进度"):
-    #     sync_code(_code)
+
+
+
+
+
+    # for _code in tqdm(zhishu, desc="同步进度"):
+    #     sync_zhishu(_code)
+    # sync_zhishu("SHSE.000300")
+    # sync_zhishu("SHSE.000914")
+
+    for _code in tqdm(run_codes, desc="同步进度"):
+        sync_code(_code)
 
     # # 转换周期
     # # convert_code("SHSE.600519")
 
-    # # 多进程转换k线
-    # bar = tqdm(total=len(run_codes), desc="转换进度")
-    # with ProcessPoolExecutor(max_workers=22) as ex:
-    #     for r in ex.map(convert_code, run_codes):
-    #         bar.update(1)
+    # 多进程转换k线
+    bar = tqdm(total=len(run_codes), desc="转换进度")
+    with ProcessPoolExecutor(max_workers=22) as ex:
+        for r in ex.map(convert_code, run_codes):
+            bar.update(1)
 
     # # # 慢慢来
     # # for code in tqdm(run_codes):
@@ -279,28 +310,12 @@ if __name__ == "__main__":
     # #     klines_w = convert_stock_kline_frequency(klines_d, "w")
     # #     db_ex.insert_klines(db_code, "w", klines_w)
 
-    # # 多进程转换k线成周线
-    # print("开始转成成周线")
-    # bar = tqdm(total=len(run_codes), desc="转换进度")
-    # with ProcessPoolExecutor(max_workers=22) as ex:
-    #     for r in ex.map(process_code, run_codes):
-    #         bar.update(1)
+    # 多进程转换k线成周线
+    print("开始转成成周线")
+    bar = tqdm(total=len(run_codes), desc="转换进度")
+    with ProcessPoolExecutor(max_workers=22) as ex:
+        for r in ex.map(process_code, run_codes):
+            bar.update(1)
 
 
-    # print("Done")
-
-    # zhishu = [
-    #     "SHSE.000001",  # 上证指数
-    #     "SHSE.000016",  # sz50
-    #     "SHSE.000300",  # hs300
-    #     "SZSE.399001",  # 深圳指数
-    #     "SHSE.000905",  # zz500
-    #     "SHSE.000852",  # 中证1000
-    #     "SZSE.399006",  # 创业板指
-    #     "SHSE.000688",  # kc50
-    # ]
-
-
-    # for _code in tqdm(zhishu, desc="同步进度"):
-    #     sync_zhishu(_code)
-    sync_zhishu("SHSE.000300")
+    print("Done")

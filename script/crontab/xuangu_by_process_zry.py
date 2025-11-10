@@ -27,10 +27,10 @@ ex = ExchangeTDX()
 """
 运行的周期，根据自己的选股方法，来设置周期参数
 """
-frequencys = ["w","d"]
-frequencys = ["d"]
+# frequencys = ["w","d"]
+# frequencys = ["d"]
 # frequencys = ['2d', "60m"]
-# frequencys = ["d","30m"]
+frequencys = ["d","30m"]
 """
 这里设置选股缠论计算的参数，要与前台展示的配置一致，不然这里选出的股票符合条件，前台页面有可能看不到
 """
@@ -49,8 +49,8 @@ mk_datas = OnlineMarketDatas(
 """
 zx = zixuan.ZiXuan("a")
 # zx_group = "测试选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
-zx_group = "日线形态选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
-# zx_group = "段内笔背驰-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+# zx_group = "日线形态选股-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
+zx_group = "段内笔背驰-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
 # zx_group = "358-8k-" + datetime.datetime.now().strftime("%Y%m%d-%H%M")
 print(zx_group)
 # 清空选股自选
@@ -68,8 +68,8 @@ def xuangu_by_code(code: str):
         
         #xg_res = xuangu.xg_high_level_xingtai_plus(code, mk_datas,datestr="2024-12-12")
         
-        # xg_res = xuangu.xg_double_xingcheng(code, mk_datas,datestr="2024-12-10")
-        xg_res = xuangu.xg_double_xingtai_dnbbc(code, mk_datas)
+        # xg_res = xuangu.xg_double_xingcheng(code, mk_datas)
+        xg_res = xuangu.xg_double_xingtai_dnbbc(code, mk_datas,datestr="2025-02-01")
 
         # xg_res= xuangu.xg_single_ma_5_8k(code, mk_datas)
         if xg_res is not None:

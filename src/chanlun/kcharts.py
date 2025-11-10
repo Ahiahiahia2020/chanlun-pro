@@ -71,7 +71,7 @@ def render_charts(
         "chart_show_atr_stop_loss": False,
         # 指标配置项
         "chart_kline_nums": 1000,
-        "chart_idx_ma_period": "120,250",
+        "chart_idx_ma_period": "90,200",
         "chart_idx_vol_ma_period": "5,60",
         "chart_idx_boll_period": 20,
         "chart_idx_rsi_period": 14,
@@ -901,13 +901,13 @@ def render_charts(
         ma_periods = config["chart_idx_ma_period"].split(",")[0:5]
         for i in range(len(ma_periods)):
             ma_period = ma_periods[i]
-            ma = talib.MA(np.array(klines["close"].tolist()), timeperiod=int(ma_period))
+            ma = talib.EMA(np.array(klines["close"].tolist()), timeperiod=int(ma_period))
             overlap_kline = overlap_kline.overlap(
                 (
                     Line()
                     .add_xaxis(xaxis_data=klines_xaxis)
                     .add_yaxis(
-                        series_name=f"MA{ma_period}",
+                        series_name=f"EMA{ma_period}",
                         is_symbol_show=False,
                         y_axis=ma,
                         linestyle_opts=opts.LineStyleOpts(width=2, color=ma_colors[i]),

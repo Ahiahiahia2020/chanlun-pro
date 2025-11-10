@@ -63,6 +63,9 @@ class ExchangeDB(Exchange):
                 "15m": "15m",
                 "10m": "10m",
                 "5m": "5m",
+                "5s": "5s",
+                "15s": "15s",
+                "30s": "30s", 
             }
         elif self.market == Market.HK.value:
             return {

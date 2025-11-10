@@ -1,0 +1,31 @@
+<template>
+  <div class="app-container">
+    <!-- 日期选择器 -->
+    <div class="date-range-picker">
+      <label>选择日期范围：</label>
+      <input type="datetime-local" v-model="startDate">
+      <label>至</label>
+      <input type="datetime-local" v-model="endDate">
+      
+      <!-- 周期选择器 -->
+      <div class="frequency-selector">
+        <label>选择周期：</label>
+        <select v-model="selectedFrequencies" multiple>
+          <option v-for="freq in availableFrequencies" :value="freq">{{freq}}</option>
+        </option>
+      </div>
+      
+      <button @click="updateCharts">更新图表</button>
+    </div>
+    
+    <!-- 图表容器 -->
+    <div class="charts-container">
+      <div v-for="freq in selectedFrequencies" :key="freq" class="chart-group">
+        <!-- K线图 -->
+        <div class="kline-chart" :id="'kline-' + freq"></div>
+        <!-- 成交量分布图 -->
+        <div class="volume-chart" :id="'volume-' + freq"></div>
+      </div>
+    </div>
+  </div>
+</template>
