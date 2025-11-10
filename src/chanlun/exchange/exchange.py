@@ -1071,21 +1071,16 @@ def convert_kline_frequency(
 
 if __name__ == "__main__":
     import pandas as pd
-
-<<<<<<< HEAD
+    from chanlun.exchange.exchange_db import ExchangeDB
+    from chanlun.exchange.exchange_tq import ExchangeTq
     code = "SHFE.RB"
     code = "SH.601991"
     # end_date = "2023-10-03 08:30:00"
-=======
-    from chanlun.exchange.exchange_db import ExchangeDB
-    from chanlun.exchange.exchange_tq import ExchangeTq
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
 
     ex = ExchangeTq()
     code = ex.default_code()
     to_f = "15m"
 
-<<<<<<< HEAD
 
     # 获取日K线数据
     klines_d = ex.klines(code, "d")
@@ -1097,10 +1092,7 @@ if __name__ == "__main__":
     # print(klines_h.tail(10))
     # print("多周期最后10根")
     # print(klines_l.tail(10))
-=======
     klines_1m = ex.klines(code, "1m")
->>>>>>> a0d0406125262ca57378e58c9b18b09aaa1991a7
-
     print(f"1分钟k线数据：{len(klines_1m)}")
     print(klines_1m.tail(10))
 
