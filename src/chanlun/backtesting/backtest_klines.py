@@ -411,6 +411,7 @@ class BackTestKlines(MarketDatas):
                 "d": 5000,
                 "120m": 500,
                 "4h": 500,
+                "3h": 500,
                 "60m": 500,
                 "30m": 500,
                 "15m": 480,

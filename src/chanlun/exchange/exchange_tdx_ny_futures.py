@@ -82,6 +82,7 @@ class ExchangeTDXNYFutures(Exchange):
             "m": "M",
             "w": "W",
             "d": "D",
+            "3h": "3H",
             "60m": "60m",
             "30m": "30m",
             "15m": "15m",
