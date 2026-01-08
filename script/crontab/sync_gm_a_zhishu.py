@@ -91,17 +91,17 @@ sync_frequencys = {
 
 # 默认第一次同步的起始时间，后续则进行增量更新
 sync_frequencys_zhishu = {
-    "1m": {
+    "5m": {
         "start": fun.datetime_to_str(
-            datetime.datetime.now() - datetime.timedelta(days=500), "%Y-%m-%d"
+            datetime.datetime.now() - datetime.timedelta(days=179), "%Y-%m-%d"
         )
-    },
+    }
 }
 
 print(sync_frequencys)
 # 本地周期与掘金周期对应关系
 fre_maps = {"d": "1d", "5m": "300s"}
-fre_maps_zhishu = {"1m": "60s"}
+fre_maps_zhishu = {"1m": "60s", "5m": "300s"}
 
 def sync_code(code):
     for f, dt in sync_frequencys.items():
