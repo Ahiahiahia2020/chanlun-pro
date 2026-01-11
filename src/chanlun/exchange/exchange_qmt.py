@@ -146,15 +146,15 @@ class ExchangeQMT(Exchange):
             "m": 8000 * 20,
             "w": 8000 * 5,
             "d": 8000,
-            "60m": 8000 * 12,
-            "30m": 8000 * 6,
-            "15m": 8000 * 3,
-            "5m": 8000,
-            "3m": 8000 * 3,
-            "1m": 8000,
+            "60m": 8000 * 4,
+            "30m": 8000 * 8,
+            "15m": 8000 * 20,
+            "5m": 8000 * 20,
+            "3m": 8000 * 20,
+            "1m": 8000 * 20,
         }
         # 复权方式
-        dividend_type = "front"
+        dividend_type = "front_ratio"
         if args is not None and "dividend_type" in args:
             dividend_type = args["dividend_type"]
 
@@ -244,6 +244,7 @@ class ExchangeQMT(Exchange):
         klines_df[["open", "high", "low", "close", "volume"]] = klines_df[
             ["open", "high", "low", "close", "volume"]
         ].astype(float)
+        klines_df['f'] = frequency
         klines_df = klines_df.sort_values("date")
 
         # 如果日线，小时设置为15点
