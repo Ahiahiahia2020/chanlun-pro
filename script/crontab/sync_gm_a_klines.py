@@ -35,14 +35,22 @@ symbols = get_symbols(sec_type1=1010, sec_type2=101001)
 run_codes = [_s["exchange"] + "." + _s["sec_id"] for _s in symbols]
 # run_codes = []
 for _c in [
-    "SH.000001",  # 上证指数
-    "SH.000016",  # sz50
-    "SH.000300",  # hs300
-    "SZ.399001",  # 深圳指数
-    "SH.000905",  # zz500
-    "SH.000852",  # 中证1000
-    "SZ.399006",  # 创业板指
-    "SH.000688",  # kc50
+    "SHSE.000001",  # 上证指数
+    "SHSE.000016",  # 上证50
+    "SHSE.000300",  # 沪深300
+    "SZSE.399001",  # 深圳指数
+    "SHSE.000905",  # 中证500
+    "SHSE.000852",  # 中证1000
+    "SZSE.399006",  # 创业板指
+    "SHSE.000688",  # 科创50
+    "SHSE.000044",  # 上证中盘
+    "SZSE.399330", # 深圳100
+    "SZSE.399935", #800信息
+    "SHSE.000070", #能源等权
+    "SZSE.399673", #创业板50
+    "SZSE.399975", #证券公司
+    "SHSE.000025", #180基建
+    "SHSE.000914", #300金融
 
 
 ]:
@@ -287,8 +295,16 @@ if __name__ == "__main__":
     # sync_zhishu("SHSE.000300")
     # sync_zhishu("SHSE.000914")
 
-    for _code in tqdm(run_codes, desc="同步进度"):
-        sync_code(_code)
+    # for _code in tqdm(run_codes, desc="同步进度"):
+    #     sync_code(_code)
+
+    # 多进程转换k线成周线
+    print("开始多进程同步")
+    bar = tqdm(total=len(run_codes), desc="转换进度")
+    with ProcessPoolExecutor(max_workers=22) as ex:
+        for r in ex.map(sync_code, run_codes):
+            bar.update(1)
+
 
     # # 转换周期
     # # convert_code("SHSE.600519")

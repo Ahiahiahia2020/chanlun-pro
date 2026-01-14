@@ -18,6 +18,8 @@ from chanlun.config import get_data_path
 from chanlun.xuangu import xuangu
 import datetime
 from chanlun.utils import send_fs_msg_mine
+import os
+import talib
 # 如在远程执行，需要制定掘金终端地址  https://www.myquant.cn/docs/gm3_faq/154#b244aeed0032526e
 set_serv_addr(config.GM_SERVER_ADDR)
 # 设置token， 查看已有token ID,在用户-秘钥管理里获取
@@ -35,7 +37,7 @@ print("Sync Len : ", len(run_codes))
 # 配置日志
 current_time = datetime.datetime.now().strftime('%Y%m%d')
 logging.basicConfig(
-    filename=f'run_xuangu_{current_time}.log',  # 日志文件名自适应当前时间
+    filename=f'F:\\xuangu_history\\run_xuangu_{current_time}.log',  # 日志文件名自适应当前时间
     filemode='a',           # 文件模式
     format='%(asctime)s - %(levelname)s - %(message)s',  # 日志格式
     level=logging.INFO      # 日志级别
@@ -91,7 +93,7 @@ class HistoryXuangu(object):
         db.marks_del(self.market, "XG")
 
         # 选股结果保存文件 确保有这个目录
-        self.xg_result_path = get_data_path() / "history_xuangu"
+        self.xg_result_path = "F:\\history_xuangu"
         # logging.info(f"选股结果保存文件 {self.xg_result_path}")
 
     def xuangu_by_code(self, code: str, date_str="2025-03-04"):
@@ -201,7 +203,7 @@ class HistoryXuangu(object):
                 logging.error(f"{code} 选股异常: {e},{traceback.format_exc()}")
 
         # 保存选股结果
-        with open(self.xg_result_path / f"xg_{code}.pkl", "wb") as fp:
+        with open(os.path.join(self.xg_result_path, f"xg_{code}.pkl")) as fp:
             pickle.dump(xg_res, fp)
         # print(klines)
         return True
@@ -217,19 +219,19 @@ if __name__ == "__main__":
     print("开始选股")
     print(f"{hxg.xg_start_date} ~ {hxg.xg_end_date}")
 
-    # TODO 测试单个选股
-    # hxg.xuangu_by_code('SH.600269')
+    # # TODO 测试单个选股
+    hxg.xuangu_by_code('SH.600269')
 
-    # TODO 多进程执行选股，根据自己 cpu 核数来调整
-    with ProcessPoolExecutor(
-        max_workers=22, mp_context=get_context("spawn")
-    ) as executor:
-        bar = tqdm(total=len(run_codes))
-        for _ in executor.map(
-            hxg.xuangu_by_code,
-            run_codes,
-        ):
-            bar.update(1)
+    # # TODO 多进程执行选股，根据自己 cpu 核数来调整
+    # with ProcessPoolExecutor(
+    #     max_workers=22, mp_context=get_context("spawn")
+    # ) as executor:
+    #     bar = tqdm(total=len(run_codes))
+    #     for _ in executor.map(
+    #         hxg.xuangu_by_code,
+    #         run_codes,
+    #     ):
+    #         bar.update(1)
 
     print("Done")
 
