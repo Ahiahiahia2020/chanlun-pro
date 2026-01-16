@@ -778,8 +778,8 @@ if __name__ == "__main__":
     # print("use time : ", time.time() - s_time)
     # 207735
     #
-    klines = ex.klines("SH.600498", "2d")
-    print(klines)
+    # klines = ex.klines("SH.600498", "2d")
+    # print(klines)
 
     # stock = ex.stock_info("SH.512800")
     # print(stock)
@@ -790,6 +790,7 @@ if __name__ == "__main__":
 
     # 获取复权相关信息
     # code = "SZ.002165"
-    # market, tdx_code, _ = ex.to_tdx_code(code)
-    # xdxr_data = ex.xdxr(market, code, tdx_code)
-    # print(xdxr_data)
+    code = "SZ.002759"
+    market, tdx_code, _ = ex.to_tdx_code(code)
+    xdxr_data = ex.xdxr(market, code, tdx_code)
+    print(xdxr_data)
