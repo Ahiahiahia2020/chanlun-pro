@@ -50,12 +50,12 @@ class HistoryXuangu(object):
         # 选股市场
         self.market = "a"
         # 选股日期范围
-        self.xg_start_date = "2024-01-01 09:00:00"
-        self.xg_end_date = "2025-12-27 15:00:00"
+        self.xg_start_date = "2010-01-01 09:00:00"
+        self.xg_end_date = "2025-12-31 15:00:00"
         # 选股周期
         self.freqencys = ["w","d"]
         # 缠论配置
-        self.cl_config = query_cl_chart_config(self.market, "SH.000300")
+        self.cl_config = query_cl_chart_config(self.market, "SH.000001")
 
         # 加入的自选
         self.zx = ZiXuan(self.market)
@@ -73,6 +73,8 @@ class HistoryXuangu(object):
         self.signal = 0
         self.bottom_price = 0
         self.neck_price = 0
+        self.info = {}
+        self.chance_list = []
 
     # 三周期选股，此处只选大周期和中周期，大周期默认周线，中周期默认日线
     # 第一步：大周期趋势过滤（周线）- 解决“做多还是做空”的问题
@@ -147,6 +149,7 @@ class HistoryXuangu(object):
                         msg = f"{last_k.c}跌破W底{self.bottom_price},形态失效,sig{self.signal}"
                         self.signal = 0
                         print(msg)
+                        self.info['xingtai_end_date'] = kdate
                         db.marks_add(
                         self.market,
                         code.replace("SHSE.", "SH.").replace("SZSE.", "SZ."),
@@ -216,7 +219,9 @@ class HistoryXuangu(object):
                     if last_k.c >=  self.neck_price:
                         self.signal = 9
                         print("当天突破颈线，后续跟踪回踩")
-                    msg = "股票{};{}颈线位{}于{};笔结束日期:{};检出日期：{};w_price:{};k_delta:{},sig:{};".format(high_cd.get_code(),mid_cd.get_frequency(),self.neck_price,neck_date,last_bi.end.k.date,kdate,self.bottom_price,k_delta,self.signal)
+                    msg = "股票{};{}颈线位{}于{};笔结束日期:{};检出日期：{};w_price:{};k{},s{};" \
+                        .format(high_cd.get_code(),mid_cd.get_frequency(),self.neck_price,fun.datetime_to_str(neck_date, "%Y-%m-%d"),fun.datetime_to_str(last_bi.end.k.date, "%Y-%m-%d"),\
+                            fun.datetime_to_str(kdate, "%Y-%m-%d"),self.bottom_price,self.k_delta,self.signal)
                     print(msg)
                     self.signal= 1
                     # send_fs_msg_mine("选股","选股：",msg)

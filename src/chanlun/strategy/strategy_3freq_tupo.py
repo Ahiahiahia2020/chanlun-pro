@@ -23,7 +23,7 @@ class Strategy3FreqTupo(Strategy):
         self.info = {}
         # 最大亏损比例
         self.max_loss_rate = 2 if max_loss_rate is None else max_loss_rate
-
+        db.marks_del_all_by_code(market="a", code="SH.000300")
 
     def open(
         self, code, market_data: MarketDatas, poss: Dict[str, POSITION]
@@ -43,21 +43,21 @@ class Strategy3FreqTupo(Strategy):
             pre_k = klines[-2]
             kdate = last_k.date
             amounts = np.array([_k.a for _k in klines])
-            ma39_amount = ta.MA(amounts, 39)
+            ma20_amount = ta.MA(amounts, 20)
             self.info['a_by_pre'] = last_k.a / pre_k.a
-            self.info['a_by_ma39'] = last_k.a / ma39_amount[-2]
+            self.info['a_by_ma39'] = last_k.a / ma20_amount[-2]
             # 小级别放量突破中级别颈线位，买入做多
             if (
                 last_k.c > self.neck_price
                 and pre_k.c <= self.neck_price 
                 and last_k.a > pre_k.a * 3
-                and last_k.a > ma39_amount[-2] * 3
-                and (last_k.h - last_k.c) / (last_k.h - pre_k.c) < 0.8
+                and last_k.a > ma20_amount[-2] * 3
+                and (last_k.h - last_k.c) / (last_k.h - pre_k.c) < 0.5
             ):
                 #上引线占比
                 k_value = (last_k.h - last_k.c) / (last_k.h - pre_k.c)
                 self.info["k_value"] = k_value
-                loss_price = pre_k.c - self.stop_atr * 1.5
+                loss_price = min(pre_k.l,last_k.l)  - self.stop_atr * 1.5
                 self.target_price = self.neck_price + (self.neck_price - self.bottom_price)
                 self.target_rate = (self.target_price - last_k.c) / (last_k.c - loss_price)
                 self.info["target_rate"] = self.target_rate
@@ -183,11 +183,11 @@ class Strategy3FreqTupo(Strategy):
         opts = []
         if pos.balance == 0:
             return None
-
-        mid_cd = market_data.get_cl_data(code, market_data.frequencys[1])
-        klines = mid_cd.get_src_klines()
+        self.if_close = False
+        low_cd = market_data.get_cl_data(code, market_data.frequencys[-1])
+        klines = low_cd.get_src_klines()
         price = klines[-1].c
-
+        kdate = klines[-1].date
         open_k_date = self.info["open_k_date"]  # 开仓当天日期
         open_next_klines = [_k for _k in klines if _k.date > open_k_date]
 
@@ -210,6 +210,46 @@ class Strategy3FreqTupo(Strategy):
                     close_uid=f"{code}_{self.target_price}",
                 )
             )
+        # 持仓后，第二个5分钟向上线段不突破第一个5分钟向上线段最高点后，5分钟向下笔完成时平仓
+        low_xds = low_cd.get_xds()
+        last_xd = low_xds[-1]
+
+        for i in range(len(low_xds) - 1,0,-1):
+            if low_xds[i].start.k.date <= open_k_date:
+                break
+        last_xds = low_xds[i:]
+        if len(last_xds)< 3 or last_xd.type == "down":
+            return opts
+        low_bis = low_cd.get_bis()
+        last_bi = low_bis[-1]
+        if last_xds[-1].high < last_xds[-2].high and last_bi.type == "down" and last_bi.is_done():
+            opts.append(
+                Operation(
+                    code,
+                    "sell",
+                    "2sell",
+                    0,
+                    self.info,
+                    f"线段{last_xd.end.k.date},笔{last_bi.end.k.date}",
+                    pos_rate=pos.now_pos_rate,
+                    close_uid=f"5分钟线段二卖",
+                )
+            )
+            
+            if not self.if_close:
+                db.marks_add(
+                market_data.market,
+                code.replace("SHSE.", "SH.").replace("SZSE.", "SZ."),
+                "",
+                "",
+                fun.datetime_to_int(kdate),
+                "S",
+                f"5分钟线段二卖",
+                "earningDown",
+                "green",
+            )
+            self.if_close = True
+        
 
         # TODO 收盘最大盈利回调5%，止盈
         if True and len(open_next_klines) > 0:
