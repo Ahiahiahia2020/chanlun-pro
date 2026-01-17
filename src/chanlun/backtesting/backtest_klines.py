@@ -462,12 +462,18 @@ if __name__ == "__main__":
     bkt = BackTestKlines(market, start, end, frequencys, cl_config)
     bkt.init(code, frequencys[-1])
 
-    s_time = time.time()
-    while bkt.next():
-        k = bkt.klines(code, "d")
-        ks = klines_to_heikin_ashi_klines(k.iloc[-1000::])
+    # s_time = time.time()
+    # while bkt.next():
+    #     k = bkt.klines(code, "d")
+    #     ks = klines_to_heikin_ashi_klines(k.iloc[-1000::])
 
-        # print(
-        #     f"{code} - {f} : kline last date : {k.iloc[-1]['date']} close: {k.iloc[-1]['close']}"
-        # )
-    print(f"总耗时：{time.time() - s_time}")
+    #     # print(
+    #     #     f"{code} - {f} : kline last date : {k.iloc[-1]['date']} close: {k.iloc[-1]['close']}"
+    #     # )
+    # print(f"总耗时：{time.time() - s_time}")
+
+
+    start_time = time.time()
+    k = bkt.klines(code, "1m")
+    use_time = time.time() - start_time
+    print(f"  读取时间: {use_time:.4f} 秒")

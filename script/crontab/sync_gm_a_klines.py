@@ -213,7 +213,7 @@ def convert_code(code):
         # 统一删除，重新计算
         # db_ex.del_klines_by_code(db_code)
 
-        for f in ["5m", "15m", "30m", "60m", "d"]:
+        for f in ["5m", "30m", "d"]:
             # 获取最后一根k线数据
             last_klines = db_ex.klines(db_code, f, args={"limit": 10})
             if len(last_klines) != 0:
@@ -247,13 +247,13 @@ def convert_code(code):
             # 全量更新
             db_ex.del_klines_by_code_freq(db_code, f)  # 先删除所有数据
             if f == "5m":
-                start_dt = "2023-01-01 00:00:00"
+                start_dt = "2010-01-01 00:00:00"
             elif f == "15m":
-                start_dt = "2023-01-01 00:00:00"
+                start_dt = "2010-01-01 00:00:00"
             elif f == "30m":
-                start_dt = "2014-01-01 00:00:00"
+                start_dt = "2010-01-01 00:00:00"
             elif f == "60m":
-                start_dt = "2023-01-01 00:00:00"
+                start_dt = "2010-01-01 00:00:00"
             else:
                 start_dt = None
             gm_klines = db_ex.klines(
@@ -272,28 +272,20 @@ def convert_code(code):
         print(f"Convert {code} error : {str(e)[0:200]}")
     return True
 
-def process_code(code):
+def convert_code_to_w(code):
     """
     处理单个股票代码，将日线数据转换为周线数据并保存
     """
     try:
         db_code = to_tdx_codes([code])[0]
         klines_d = db_ex.klines(db_code, "d", args={"limit": 9999999})
+        db_ex.del_klines_by_code_freq(db_code, "w")
         klines_w = convert_stock_kline_frequency(klines_d, "w")
         db_ex.insert_klines(db_code, "w", klines_w)
     except Exception as e:
         print(f"处理代码 {code} 时出错: {e}")
 
 if __name__ == "__main__":
-
-
-
-
-
-    # for _code in tqdm(zhishu, desc="同步进度"):
-    #     sync_zhishu(_code)
-    # sync_zhishu("SHSE.000300")
-    # sync_zhishu("SHSE.000914")
 
     # for _code in tqdm(run_codes, desc="同步进度"):
     #     sync_code(_code)
@@ -330,7 +322,7 @@ if __name__ == "__main__":
     print("开始转成成周线")
     bar = tqdm(total=len(run_codes), desc="转换进度")
     with ProcessPoolExecutor(max_workers=22) as ex:
-        for r in ex.map(process_code, run_codes):
+        for r in ex.map(convert_code_to_w, run_codes):
             bar.update(1)
 
 
